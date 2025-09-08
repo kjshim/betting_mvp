@@ -20,7 +20,7 @@ from enum import Enum
 
 import aiohttp
 from prometheus_client import Counter, Histogram, Gauge, CollectorRegistry, generate_latest
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from domain.models import Transfer, TransferStatus, TransferType, Bet, BetStatus, Round, RoundStatus, User
