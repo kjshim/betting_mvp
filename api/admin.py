@@ -26,13 +26,17 @@ from domain.models import (
 from domain.services import LedgerService, BettingService, TvlService
 from infra.db import get_async_db
 from infra.monitoring import HealthChecker, prometheus_metrics
+from infra.settings import settings
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 templates = Jinja2Templates(directory="templates")
 
-# Simple admin credentials
-ADMIN_PASSWORD = "admin2024!"  # Change this in production!
+# Add datetime to all templates globally
+templates.env.globals['datetime'] = datetime
+
+# Simple admin credentials from environment
+ADMIN_PASSWORD = settings.admin_password
 
 def check_admin_session(admin_session: str = Cookie(None)):
     """Check if user has valid admin session"""
@@ -141,8 +145,7 @@ async def admin_dashboard(
         "health": health,
         "stats": Stats(),
         "recent_operations": [],
-        "health_summary": {"healthy": 0, "degraded": 0, "unhealthy": 0},
-        "datetime": datetime
+        "health_summary": {"healthy": 0, "degraded": 0, "unhealthy": 0}
     })
 
 

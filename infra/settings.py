@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     fee_bps: int = Field(default=100, ge=0, le=10000)
     settle_grace_min: int = Field(default=30, ge=1)
     close_fetch_delay_min: int = Field(default=5, ge=1)
+    admin_password: str = Field(default="admin2024!")
 
     class Config:
         env_file = ".env"
