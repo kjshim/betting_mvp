@@ -1,7 +1,7 @@
 """
 Compact admin interface for betting MVP maintenance.
 
-Provides a simple web UI for:
+Provides a simple web UI with session-based authentication for:
 - System health monitoring
 - User management
 - Transaction monitoring
@@ -14,13 +14,11 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, status, Cookie
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func, and_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from api.auth import ApiKey, require_admin
 from domain.models import (
     User, Round, Bet, Transfer, LedgerEntry, 
     RoundStatus, BetStatus, TransferStatus, TransferType, BetSide
@@ -33,13 +31,55 @@ from infra.monitoring import HealthChecker, prometheus_metrics
 router = APIRouter(prefix="/admin", tags=["admin"])
 templates = Jinja2Templates(directory="templates")
 
+# Simple admin credentials
+ADMIN_PASSWORD = "admin2024!"  # Change this in production!
 
+def check_admin_session(admin_session: str = Cookie(None)):
+    """Check if user has valid admin session"""
+    if admin_session != "admin_logged_in":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Please login to access admin panel"
+        )
+    return True
+
+
+
+@router.get("/login", response_class=HTMLResponse)
+async def admin_login_page(request: Request):
+    """Admin login page"""
+    return templates.TemplateResponse("admin/login.html", {
+        "request": request
+    })
+
+@router.post("/login", response_class=HTMLResponse)
+async def admin_login(
+    request: Request,
+    password: str = Form(...),
+):
+    """Handle admin login"""
+    if password == ADMIN_PASSWORD:
+        response = RedirectResponse(url="/admin/", status_code=302)
+        response.set_cookie(key="admin_session", value="admin_logged_in", httponly=True, max_age=86400)  # 24 hours
+        return response
+    else:
+        return templates.TemplateResponse("admin/login.html", {
+            "request": request,
+            "error": "Invalid password"
+        })
+
+@router.get("/logout")
+async def admin_logout():
+    """Logout admin"""
+    response = RedirectResponse(url="/admin/login", status_code=302)
+    response.delete_cookie(key="admin_session")
+    return response
 
 @router.get("/", response_class=HTMLResponse)
 async def admin_dashboard(
     request: Request,
     db: AsyncSession = Depends(get_async_db),
-    api_key: ApiKey = Depends(require_admin)
+    _: bool = Depends(check_admin_session)
 ):
     """Main admin dashboard"""
     
@@ -52,7 +92,7 @@ async def admin_dashboard(
     
     # Recent rounds
     recent_rounds = await db.execute(
-        select(Round).order_by(desc(Round.created_at)).limit(5)
+        select(Round).order_by(desc(Round.start_ts)).limit(5)
     )
     rounds = recent_rounds.scalars().all()
     
@@ -60,7 +100,7 @@ async def admin_dashboard(
     yesterday = datetime.utcnow() - timedelta(days=1)
     recent_bets_count = await db.scalar(
         select(func.count()).where(
-            and_(Bet.created_at >= yesterday, Bet.status != BetStatus.VOID)
+            and_(Bet.created_at >= yesterday, Bet.status != BetStatus.REFUNDED)
         )
     )
     
@@ -82,18 +122,27 @@ async def admin_dashboard(
     tvl_service = TvlService(db, ledger_service)
     tvl_data = await tvl_service.get_tvl()
     
+    # Create stats object with all needed fields
+    class Stats:
+        def __init__(self):
+            self.user_count = user_count or 0
+            self.recent_bets_24h = recent_bets_count or 0
+            self.pending_deposits = pending_deposits or 0
+            self.pending_withdrawals = pending_withdrawals or 0
+            self.tvl_locked_usdc = tvl_data["locked_u"] / 1_000_000 if tvl_data else 0
+            self.total_cash_usdc = tvl_data["total_cash_u"] / 1_000_000 if tvl_data else 0
+            self.active_transfers = (pending_deposits or 0) + (pending_withdrawals or 0)
+            self.round_count = len(rounds)
+            self.total_volume_usdc = 0
+            self.active_rounds = len([r for r in rounds if r.status in [RoundStatus.OPEN, RoundStatus.LOCKED]])
+
     return templates.TemplateResponse("admin/dashboard.html", {
         "request": request,
         "health": health,
-        "stats": {
-            "user_count": user_count,
-            "recent_bets_24h": recent_bets_count,
-            "pending_deposits": pending_deposits,
-            "pending_withdrawals": pending_withdrawals,
-            "tvl_locked_usdc": tvl_data["locked_u"] / 1_000_000,
-            "total_cash_usdc": tvl_data["total_cash_u"] / 1_000_000,
-        },
-        "recent_rounds": rounds,
+        "stats": Stats(),
+        "recent_operations": [],
+        "health_summary": {"healthy": 0, "degraded": 0, "unhealthy": 0},
+        "datetime": datetime
     })
 
 
@@ -103,7 +152,7 @@ async def admin_users(
     page: int = 1,
     search: Optional[str] = None,
     db: AsyncSession = Depends(get_async_db),
-    api_key: ApiKey = Depends(require_admin)
+    _: bool = Depends(check_admin_session)
 ):
     """User management page"""
     
@@ -163,7 +212,7 @@ async def admin_transactions(
     status_filter: Optional[str] = None,
     type_filter: Optional[str] = None,
     db: AsyncSession = Depends(get_async_db),
-    api_key: ApiKey = Depends(require_admin)
+    _: bool = Depends(check_admin_session)
 ):
     """Transaction monitoring page"""
     
@@ -213,7 +262,7 @@ async def admin_rounds(
     request: Request,
     page: int = 1,
     db: AsyncSession = Depends(get_async_db),
-    api_key: ApiKey = Depends(require_admin)
+    _: bool = Depends(check_admin_session)
 ):
     """Round management page"""
     
@@ -229,7 +278,7 @@ async def admin_rounds(
         )
         .outerjoin(Bet, Round.id == Bet.round_id)
         .group_by(Round.id)
-        .order_by(desc(Round.created_at))
+        .order_by(desc(Round.start_ts))
         .offset(offset)
         .limit(page_size)
     )
@@ -268,7 +317,7 @@ async def admin_rounds(
 async def admin_api_keys(
     request: Request,
     db: AsyncSession = Depends(get_async_db),
-    api_key: ApiKey = Depends(require_admin)
+    _: bool = Depends(check_admin_session)
 ):
     """API key management page"""
     
@@ -290,7 +339,7 @@ async def create_api_key(
     role: str = Form(...),
     user_id: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_async_db),
-    api_key: ApiKey = Depends(require_admin)
+    _: bool = Depends(check_admin_session)
 ):
     """Create new API key"""
     
@@ -329,7 +378,7 @@ async def create_api_key(
 async def revoke_api_key(
     key_id: str,
     db: AsyncSession = Depends(get_async_db),
-    api_key: ApiKey = Depends(require_admin)
+    _: bool = Depends(check_admin_session)
 ):
     """Revoke an API key"""
     
@@ -353,7 +402,7 @@ async def revoke_api_key(
 async def admin_system(
     request: Request,
     db: AsyncSession = Depends(get_async_db),
-    api_key: ApiKey = Depends(require_admin)
+    _: bool = Depends(check_admin_session)
 ):
     """System monitoring and health page"""
     
@@ -395,7 +444,7 @@ async def admin_system(
 @router.post("/system/reconcile")
 async def trigger_reconciliation(
     db: AsyncSession = Depends(get_async_db),
-    api_key: ApiKey = Depends(require_admin)
+    _: bool = Depends(check_admin_session)
 ):
     """Trigger manual reconciliation"""
     
@@ -413,7 +462,7 @@ async def admin_user_detail(
     request: Request,
     user_id: str,
     db: AsyncSession = Depends(get_async_db),
-    api_key: ApiKey = Depends(require_admin)
+    _: bool = Depends(check_admin_session)
 ):
     """Individual user detail page"""
     

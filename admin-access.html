@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Betting MVP Admin Access</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .container { background: #f5f5f5; padding: 30px; border-radius: 8px; }
+        .api-key { background: #fff; padding: 15px; border: 2px solid #007bff; border-radius: 4px; font-family: monospace; font-size: 14px; word-break: break-all; margin: 10px 0; }
+        .admin-link { display: inline-block; background: #007bff; color: white; padding: 15px 30px; text-decoration: none; border-radius: 4px; margin: 10px 0; }
+        .admin-link:hover { background: #0056b3; }
+        .info { background: #e7f3ff; border: 1px solid #b3d7ff; padding: 15px; border-radius: 4px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Betting MVP Admin Access</h1>
+        
+        <div class="info">
+            <h3>🔐 Admin Login:</h3>
+            <div class="api-key">Password: <strong>admin2024!</strong></div>
+            <button onclick="copyPassword()" style="padding: 8px 16px;">📋 Copy Password</button>
+        </div>
+
+        <h3>🚀 Quick Access:</h3>
+        <a href="http://localhost:8000/admin/login" target="_blank" class="admin-link">🔓 Login Page</a>
+        <a href="http://localhost:8000/admin/" target="_blank" class="admin-link">📊 Dashboard</a>
+        <a href="http://localhost:8000/admin/users" target="_blank" class="admin-link">👥 Users</a>
+        <a href="http://localhost:8000/admin/transactions" target="_blank" class="admin-link">💰 Transactions</a>
+        <a href="http://localhost:8000/admin/rounds" target="_blank" class="admin-link">🎲 Rounds</a>
+        <a href="http://localhost:8000/admin/system" target="_blank" class="admin-link">⚙️ System Health</a>
+        <a href="http://localhost:8000/admin/api-keys" target="_blank" class="admin-link">🔑 API Keys</a>
+
+        <div class="info">
+            <h4>Simple Login Instructions:</h4>
+            <ol>
+                <li>Click the <strong>"🔓 Login Page"</strong> button above</li>
+                <li>Enter password: <code>admin2024!</code></li>
+                <li>Access all admin features with normal browser navigation!</li>
+            </ol>
+            <p><strong>No browser extensions needed - just regular web login! 🎉</strong></p>
+        </div>
+    </div>
+
+    <script>
+        const ADMIN_PASSWORD = 'admin2024!';
+        const BASE_URL = 'http://localhost:8000';
+
+        function copyPassword() {
+            navigator.clipboard.writeText(ADMIN_PASSWORD).then(() => {
+                alert('Password copied to clipboard!');
+            });
+        }
+
+        async function openAdmin(path) {
+            try {
+                // Try to open with fetch first to test
+                const response = await fetch(BASE_URL + path, {
+                    headers: {
+                        'Authorization': `Bearer ${API_KEY}`,
+                        'Accept': 'text/html'
+                    }
+                });
+                
+                if (response.ok) {
+                    const html = await response.text();
+                    const newWindow = window.open('', '_blank');
+                    newWindow.document.write(html);
+                    newWindow.document.close();
+                } else {
+                    alert(`Error: ${response.status} - ${response.statusText}`);
+                }
+            } catch (error) {
+                alert(`Error accessing admin: ${error.message}`);
+                // Fallback - open in new tab and show instructions
+                window.open(BASE_URL + path, '_blank');
+            }
+        }
+
+        // Check if API is running
+        fetch(BASE_URL + '/health')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'healthy') {
+                    document.body.insertAdjacentHTML('afterbegin', 
+                        '<div style="background: #d4edda; color: #155724; padding: 10px; text-align: center; margin-bottom: 20px; border-radius: 4px;">✅ API is running and healthy!</div>'
+                    );
+                }
+            })
+            .catch(() => {
+                document.body.insertAdjacentHTML('afterbegin', 
+                    '<div style="background: #f8d7da; color: #721c24; padding: 10px; text-align: center; margin-bottom: 20px; border-radius: 4px;">❌ API is not running. Please start with: docker-compose up -d</div>'
+                );
+            });
+    </script>
+</body>
+</html>
