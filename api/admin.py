@@ -21,9 +21,9 @@ from sqlalchemy import select, func, and_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from domain.models import (
     User, Round, Bet, Transfer, LedgerEntry, 
-    RoundStatus, BetStatus, TransferStatus, TransferType, BetSide
+    RoundStatus, BetStatus, TransferStatus, TransferType, BetSide, RoundResult
 )
-from domain.services import LedgerService, BettingService, TvlService
+from domain.services import LedgerService, BettingService, TvlService, SettlementService
 from infra.db import get_async_db
 from infra.monitoring import HealthChecker, prometheus_metrics
 from infra.settings import settings
@@ -296,9 +296,9 @@ async def admin_rounds(
         rounds_data.append({
             "round": round_obj,
             "bet_count": bet_count or 0,
-            "total_volume_usdc": (total_volume or 0) / 1_000_000,
-            "up_pool_usdc": up_pool / 1_000_000,
-            "down_pool_usdc": down_pool / 1_000_000
+            "total_volume_usdc": float((total_volume or 0) / 1_000_000),
+            "up_pool_usdc": float(up_pool / 1_000_000),
+            "down_pool_usdc": float(down_pool / 1_000_000)
         })
     
     # Total count
@@ -458,6 +458,90 @@ async def trigger_reconciliation(
         url="/admin/system?message=Reconciliation+triggered",
         status_code=status.HTTP_303_SEE_OTHER
     )
+
+
+@router.post("/rounds/{round_code}/lock")
+async def lock_round(
+    round_code: str,
+    db: AsyncSession = Depends(get_async_db),
+    _: bool = Depends(check_admin_session)
+):
+    """Lock a round to stop new bets"""
+    
+    # Find the round
+    result = await db.execute(
+        select(Round).where(Round.code == round_code)
+    )
+    round_obj = result.scalar_one_or_none()
+    
+    if not round_obj:
+        raise HTTPException(status_code=404, detail="Round not found")
+    
+    if round_obj.status != RoundStatus.OPEN:
+        raise HTTPException(status_code=400, detail=f"Round is not open: {round_obj.status}")
+    
+    # Lock the round
+    round_obj.status = RoundStatus.LOCKED
+    round_obj.lock_ts = func.now()
+    
+    await db.commit()
+    
+    return RedirectResponse(
+        url=f"/admin/rounds?message=Round+{round_code}+locked",
+        status_code=status.HTTP_303_SEE_OTHER
+    )
+
+
+@router.post("/rounds/{round_code}/settle")
+async def settle_round(
+    round_code: str,
+    result: str = Form(...),  # "UP", "DOWN", or "VOID"
+    db: AsyncSession = Depends(get_async_db),
+    _: bool = Depends(check_admin_session)
+):
+    """Settle a round with specified result"""
+    
+    try:
+        round_result = RoundResult(result.upper())
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid result. Must be UP, DOWN, or VOID")
+    
+    # Find the round
+    result_query = await db.execute(
+        select(Round).where(Round.code == round_code)
+    )
+    round_obj = result_query.scalar_one_or_none()
+    
+    if not round_obj:
+        raise HTTPException(status_code=404, detail="Round not found")
+    
+    if round_obj.status != RoundStatus.LOCKED:
+        # Auto-lock if OPEN
+        if round_obj.status == RoundStatus.OPEN:
+            round_obj.status = RoundStatus.LOCKED
+            round_obj.lock_ts = func.now()
+            await db.flush()
+        else:
+            raise HTTPException(status_code=400, detail=f"Round cannot be settled: {round_obj.status}")
+    
+    # Create services for settlement
+    ledger_service = LedgerService(db)
+    betting_service = BettingService(db, ledger_service)
+    settlement_service = SettlementService(db, ledger_service, betting_service)
+    
+    try:
+        # Settle the round
+        await settlement_service.settle_round(round_obj.id, round_result)
+        await db.commit()
+        
+        return RedirectResponse(
+            url=f"/admin/rounds?message=Round+{round_code}+settled+with+result+{result.upper()}",
+            status_code=status.HTTP_303_SEE_OTHER
+        )
+        
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Settlement failed: {str(e)}")
 
 
 @router.get("/user/{user_id}", response_class=HTMLResponse)
