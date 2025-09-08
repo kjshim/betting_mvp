@@ -1,0 +1,18 @@
+#!/bin/bash
+# Betting MVP CLI wrapper
+# Usage: ./betting <command> [args]
+
+if [ "$1" = "docker" ]; then
+    # Force docker mode
+    shift
+    docker-compose exec api python -m cli.main "$@"
+elif command -v betting-cli >/dev/null 2>&1; then
+    # Use installed CLI
+    betting-cli "$@"
+elif [ -f "cli/main.py" ]; then
+    # Use local Python module
+    python -m cli.main "$@"
+else
+    # Fallback to docker
+    docker-compose exec api python -m cli.main "$@"
+fi

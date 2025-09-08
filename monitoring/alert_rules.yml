@@ -1,0 +1,134 @@
+groups:
+  - name: betting_service_alerts
+    rules:
+      # High error rate
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status_code=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} errors per second"
+
+      # Database connectivity
+      - alert: DatabaseDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database is down"
+          description: "PostgreSQL database is not responding"
+
+      # Redis connectivity
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "Redis cache is not responding"
+
+      # Too many pending transactions
+      - alert: TooManyPendingTransactions
+        expr: pending_transfers_total > 100
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: "Too many pending transactions"
+          description: "{{ $value }} transactions are pending confirmation"
+
+      # Blockchain sync lag
+      - alert: BlockchainSyncLag
+        expr: (latest_block - last_processed_block) > 50
+        for: 5m
+        labels:
+          severity: medium
+        annotations:
+          summary: "Blockchain sync lagging"
+          description: "{{ $value }} blocks behind current blockchain height"
+
+      # High chain error rate
+      - alert: HighChainErrorRate
+        expr: rate(chain_errors_total[5m]) > 1
+        for: 2m
+        labels:
+          severity: high
+        annotations:
+          summary: "High blockchain error rate"
+          description: "{{ $value }} blockchain errors per second"
+
+      # Ledger imbalance
+      - alert: LedgerImbalance
+        expr: abs(sum(ledger_balance_micro_usdc)) > 1000
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Ledger entries are imbalanced"
+          description: "Ledger imbalance of {{ $value }} micro-USDC detected"
+
+      # Low wallet balance
+      - alert: LowWalletBalance
+        expr: wallet_balance_usdc < 1000
+        for: 5m
+        labels:
+          severity: high
+        annotations:
+          summary: "Low wallet balance"
+          description: "Withdrawal wallet has only {{ $value }} USDC remaining"
+
+      # Application not responding
+      - alert: ApplicationDown
+        expr: up{job="betting-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Application is down"
+          description: "Betting API is not responding to health checks"
+
+      # High response time
+      - alert: HighResponseTime
+        expr: http_request_duration_seconds{quantile="0.95"} > 2
+        for: 5m
+        labels:
+          severity: medium
+        annotations:
+          summary: "High response time"
+          description: "95th percentile response time is {{ $value }}s"
+
+  - name: business_metrics_alerts
+    rules:
+      # Unusual betting volume
+      - alert: UnusualBettingVolume
+        expr: rate(bet_amount_micro_usdc_total[1h]) > 10000000000  # 10k USDC/hour
+        for: 10m
+        labels:
+          severity: medium
+        annotations:
+          summary: "Unusual betting volume"
+          description: "Betting volume is {{ $value | humanize }} micro-USDC per hour"
+
+      # No bets placed (might indicate system issue)
+      - alert: NoBetsPlaced
+        expr: rate(bets_total[30m]) == 0
+        for: 30m
+        labels:
+          severity: medium
+        annotations:
+          summary: "No bets placed recently"
+          description: "No bets have been placed in the last 30 minutes"
+
+      # Large withdrawal pending
+      - alert: LargeWithdrawalPending
+        expr: transfer_amount_micro_usdc_total{type="withdrawal"} > 100000000000  # >100k USDC
+        for: 2h
+        labels:
+          severity: high
+        annotations:
+          summary: "Large withdrawal pending"
+          description: "Withdrawal of {{ $value | humanize }} micro-USDC has been pending for 2+ hours"

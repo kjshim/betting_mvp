@@ -38,3 +38,23 @@ test-local:
 
 setup-env:
 	cp .env.example .env
+
+# CLI shortcuts
+cli:
+	python -m cli.main $(ARGS)
+
+cli-docker:
+	docker-compose exec api python -m cli.main $(ARGS)
+
+# Common operations
+open-round:
+	python -m cli.main open-round --code $(shell date +%Y%m%d)
+
+lock-round:
+	python -m cli.main lock-round --code $(shell date +%Y%m%d)
+
+settle-round:
+	python -m cli.main settle-round --code $(shell date +%Y%m%d) --result AUTO
+
+betting-tvl:
+	python -m cli.main tvl

@@ -7,6 +7,8 @@ import pytz
 import typer
 from sqlalchemy import select
 
+from cli.auth import app as auth_app
+
 from adapters.chain import MockChainGateway
 from adapters.oracle import MockOracle
 from domain.models import (
@@ -25,6 +27,9 @@ from infra.db import SessionLocal, get_db
 from infra.settings import settings
 
 app = typer.Typer(help="Betting MVP CLI")
+
+# Add auth subcommand
+app.add_typer(auth_app, name="auth", help="API key management")
 
 def get_services(db):
     """Get all services with dependencies"""

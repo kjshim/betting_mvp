@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.auth import ApiKey, require_admin, require_user, optional_auth
+
 from adapters.chain import ChainGateway, MockChainGateway
 from adapters.oracle import MockOracle, PriceOracle
 from api.schemas import (
@@ -205,7 +207,7 @@ async def create_withdrawal(
 
     # Check user balance
     ledger_service = LedgerService(db)
-    balance = await ledger_service.get_balance(withdrawal_data.user_id, "cash")
+    balance = await ledger_service.get_balance_async(withdrawal_data.user_id, "cash")
     
     if balance < withdrawal_data.amount_u:
         raise HTTPException(
@@ -240,10 +242,12 @@ async def create_withdrawal(
             tx_hash=tx_hash
         )
         db.add(transfer)
+        await db.flush()  # Flush to get the transfer.id
         
         # Deduct from user's cash balance
         ledger_service.create_entries([
             ("cash", withdrawal_data.user_id, -withdrawal_data.amount_u, "withdrawal", transfer.id),
+            ("house", None, withdrawal_data.amount_u, "withdrawal", transfer.id),  # House receives the funds
         ])
         
         await db.commit()
@@ -288,6 +292,7 @@ async def simulate_deposit(
     ledger_service = LedgerService(db)
     ledger_service.create_entries([
         ("cash", deposit_data.user_id, deposit_data.amount_u, "deposit", transfer.id),
+        ("house", None, -deposit_data.amount_u, "deposit", transfer.id),  # House provides funds
     ])
 
     await db.commit()

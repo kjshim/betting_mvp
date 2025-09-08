@@ -3,7 +3,7 @@ import uuid
 from decimal import Decimal
 
 import pytest
-from hypothesis import given, strategies as st
+from hypothesis import given, strategies as st, settings, HealthCheck
 
 from domain.models import BetSide, BetStatus, RoundResult, RoundStatus, User
 from domain.services import BettingService, LedgerService
@@ -31,6 +31,7 @@ class TestPayouts:
         ledger.create_entries([
             ("cash", user_up.id, 2000000, "deposit", round_obj.id),
             ("cash", user_down.id, 2000000, "deposit", round_obj.id),
+            ("house", None, -4000000, "deposit", round_obj.id),  # House provides funds
         ])
         sync_db.commit()
         
@@ -81,10 +82,11 @@ class TestPayouts:
         betting = BettingService(sync_db, ledger)
         
         # Give initial balances
+        balance_entries = []
         for user in users:
-            ledger.create_entries([
-                ("cash", user.id, 5000000, "deposit", round_obj.id),
-            ])
+            balance_entries.append(("cash", user.id, 5000000, "deposit", round_obj.id))
+        balance_entries.append(("house", None, -len(users) * 5000000, "deposit", round_obj.id))
+        ledger.create_entries(balance_entries)
         sync_db.commit()
         
         # Unbalanced betting: 3 users bet UP (3 USDC total), 1 user bets DOWN (2 USDC)
@@ -137,10 +139,11 @@ class TestPayouts:
         betting = BettingService(sync_db, ledger)
         
         # Give balances and place bets
+        balance_entries = []
         for user in users:
-            ledger.create_entries([
-                ("cash", user.id, 5000000, "deposit", round_obj.id),
-            ])
+            balance_entries.append(("cash", user.id, 5000000, "deposit", round_obj.id))
+        balance_entries.append(("house", None, -len(users) * 5000000, "deposit", round_obj.id))
+        ledger.create_entries(balance_entries)
         sync_db.commit()
         
         initial_balances = [ledger.get_balance(user.id, "cash") for user in users]
@@ -187,10 +190,11 @@ class TestPayouts:
         ledger = LedgerService(sync_db)
         betting = BettingService(sync_db, ledger)
         
+        balance_entries = []
         for user in users:
-            ledger.create_entries([
-                ("cash", user.id, 2000000, "deposit", round_obj.id),
-            ])
+            balance_entries.append(("cash", user.id, 2000000, "deposit", round_obj.id))
+        balance_entries.append(("house", None, -len(users) * 2000000, "deposit", round_obj.id))
+        ledger.create_entries(balance_entries)
         sync_db.commit()
         
         initial_balances = [ledger.get_balance(user.id, "cash") for user in users]
@@ -223,6 +227,7 @@ class TestPayouts:
         down_stakes=st.lists(st.integers(min_value=100000, max_value=5000000), min_size=1, max_size=5),
         result=st.sampled_from([RoundResult.UP, RoundResult.DOWN])
     )
+    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
     def test_payout_property_zero_sum(self, sync_db, round_scheduler, settlement_service,
                                       up_stakes, down_stakes, result):
         """Property test: total system should maintain zero-sum after settlement"""
@@ -242,10 +247,11 @@ class TestPayouts:
         betting = BettingService(sync_db, ledger)
         
         # Give generous initial balances
+        balance_entries = []
         for user in users:
-            ledger.create_entries([
-                ("cash", user.id, 50000000, "deposit", round_obj.id),
-            ])
+            balance_entries.append(("cash", user.id, 50000000, "deposit", round_obj.id))
+        balance_entries.append(("house", None, -len(users) * 50000000, "deposit", round_obj.id))
+        ledger.create_entries(balance_entries)
         sync_db.commit()
         
         # Place bets
