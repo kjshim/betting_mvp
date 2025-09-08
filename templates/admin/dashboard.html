@@ -1,0 +1,199 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="mb-8">
+        <h2 class="text-2xl font-bold text-gray-900">System Dashboard</h2>
+        <p class="mt-1 text-sm text-gray-600">Monitor your betting platform's health and key metrics</p>
+    </div>
+
+    <!-- System Health Status -->
+    <div class="mb-8">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">System Health</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {% for check in health.checks %}
+            <div class="metric-card">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="text-sm font-medium text-gray-900">{{ check.name.title() }}</div>
+                        <div class="text-xs text-gray-600">
+                            {% if check.latency_ms %}{{ "%.0f"|format(check.latency_ms) }}ms{% endif %}
+                        </div>
+                    </div>
+                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full border
+                        {% if check.status.value == 'healthy' %}status-healthy
+                        {% elif check.status.value == 'degraded' %}status-degraded  
+                        {% else %}status-unhealthy{% endif %}">
+                        {{ check.status.value.title() }}
+                    </span>
+                </div>
+                {% if check.message %}
+                <div class="mt-2 text-xs text-gray-600">{{ check.message }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Key Metrics -->
+    <div class="mb-8">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Key Metrics</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="metric-card">
+                <div class="metric-value text-blue-600">{{ "{:,}".format(stats.user_count) }}</div>
+                <div class="metric-label">Total Users</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-value text-green-600">{{ "{:,}".format(stats.recent_bets_24h) }}</div>
+                <div class="metric-label">Bets (24h)</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-value text-purple-600">${{ "{:,.2f}".format(stats.tvl_locked_usdc) }}</div>
+                <div class="metric-label">TVL Locked</div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="metric-value text-indigo-600">${{ "{:,.2f}".format(stats.total_cash_usdc) }}</div>
+                <div class="metric-label">Total Cash</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending Operations -->
+    <div class="mb-8">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Pending Operations</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="metric-card">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="metric-value {{ 'text-red-600' if stats.pending_deposits > 10 else 'text-gray-900' }}">
+                            {{ stats.pending_deposits }}
+                        </div>
+                        <div class="metric-label">Pending Deposits</div>
+                    </div>
+                    {% if stats.pending_deposits > 0 %}
+                    <a href="/admin/transactions?status_filter=PENDING&type_filter=DEPOSIT" 
+                       class="text-sm text-blue-600 hover:text-blue-700">
+                        View →
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="metric-value {{ 'text-red-600' if stats.pending_withdrawals > 10 else 'text-gray-900' }}">
+                            {{ stats.pending_withdrawals }}
+                        </div>
+                        <div class="metric-label">Pending Withdrawals</div>
+                    </div>
+                    {% if stats.pending_withdrawals > 0 %}
+                    <a href="/admin/transactions?status_filter=PENDING&type_filter=WITHDRAWAL" 
+                       class="text-sm text-blue-600 hover:text-blue-700">
+                        View →
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Rounds -->
+    <div class="mb-8">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Recent Rounds</h3>
+        <div class="bg-white shadow rounded-lg overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Time</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lock Time</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Result</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for round in recent_rounds %}
+                    <tr class="table-row">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ round.code }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                                {% if round.status.value == 'OPEN' %}bg-green-100 text-green-800
+                                {% elif round.status.value == 'LOCKED' %}bg-yellow-100 text-yellow-800
+                                {% elif round.status.value == 'SETTLED' %}bg-gray-100 text-gray-800
+                                {% else %}bg-red-100 text-red-800{% endif %}">
+                                {{ round.status.value }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ round.start_ts.strftime('%Y-%m-%d %H:%M') }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ round.lock_ts.strftime('%Y-%m-%d %H:%M') if round.lock_ts }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if round.result %}
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                                {% if round.result.value == 'UP' %}bg-green-100 text-green-800
+                                {% elif round.result.value == 'DOWN' %}bg-red-100 text-red-800  
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ round.result.value }}
+                            </span>
+                            {% else %}
+                            <span class="text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            {% if recent_rounds|length == 0 %}
+            <div class="text-center py-8 text-gray-500">
+                No rounds found
+            </div>
+            {% endif %}
+            
+            <div class="bg-gray-50 px-6 py-3">
+                <a href="/admin/rounds" class="text-sm text-blue-600 hover:text-blue-700">
+                    View all rounds →
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <a href="/admin/transactions" class="metric-card hover:shadow-md transition-shadow">
+            <div class="text-center">
+                <div class="text-2xl mb-2">💳</div>
+                <div class="font-medium text-gray-900">Monitor Transactions</div>
+                <div class="text-sm text-gray-600">View pending deposits & withdrawals</div>
+            </div>
+        </a>
+        
+        <a href="/admin/users" class="metric-card hover:shadow-md transition-shadow">
+            <div class="text-center">
+                <div class="text-2xl mb-2">👥</div>
+                <div class="font-medium text-gray-900">Manage Users</div>
+                <div class="text-sm text-gray-600">View user accounts & balances</div>
+            </div>
+        </a>
+        
+        <a href="/admin/system" class="metric-card hover:shadow-md transition-shadow">
+            <div class="text-center">
+                <div class="text-2xl mb-2">⚙️</div>
+                <div class="font-medium text-gray-900">System Health</div>
+                <div class="text-sm text-gray-600">Check system status & metrics</div>
+            </div>
+        </a>
+    </div>
+</div>
+{% endblock %}

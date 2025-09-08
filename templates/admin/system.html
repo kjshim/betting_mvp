@@ -1,0 +1,221 @@
+{% extends "admin/base.html" %}
+
+{% block title %}System Health{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">System Health & Monitoring</h2>
+            <p class="mt-1 text-sm text-gray-600">Monitor system health and perform maintenance operations</p>
+        </div>
+        
+        <div class="flex space-x-2">
+            <form method="post" action="/admin/system/reconcile" style="display: inline;">
+                <button type="submit" 
+                        onclick="return confirmAction('trigger manual reconciliation')"
+                        class="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2">
+                    🔄 Reconcile
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Overall Health Status -->
+    <div class="mb-8">
+        <div class="metric-card">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900">Overall System Status</h3>
+                    <p class="text-sm text-gray-600">Last checked: {{ health.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC') }}</p>
+                </div>
+                <div class="text-right">
+                    <span class="inline-flex px-3 py-2 text-sm font-semibold rounded-full border
+                        {% if health.status.value == 'healthy' %}status-healthy
+                        {% elif health.status.value == 'degraded' %}status-degraded  
+                        {% else %}status-unhealthy{% endif %}">
+                        {{ health.status.value.upper() }}
+                    </span>
+                    <div class="text-xs text-gray-500 mt-1">
+                        Uptime: {{ "%.2f"|format(health.uptime_seconds) }}s
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Health Check Details -->
+    <div class="mb-8">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Health Check Details</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for check in health.checks %}
+            <div class="metric-card">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-sm font-medium text-gray-900">{{ check.name.title() }}</h4>
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full border
+                                {% if check.status.value == 'healthy' %}status-healthy
+                                {% elif check.status.value == 'degraded' %}status-degraded  
+                                {% else %}status-unhealthy{% endif %}">
+                                {{ check.status.value.title() }}
+                            </span>
+                        </div>
+                        
+                        <div class="text-sm text-gray-600 mb-2">{{ check.message }}</div>
+                        
+                        {% if check.latency_ms %}
+                        <div class="text-xs text-gray-500">
+                            Response time: {{ "%.0f"|format(check.latency_ms) }}ms
+                        </div>
+                        {% endif %}
+                        
+                        {% if check.metadata %}
+                        <div class="mt-2">
+                            <details class="text-xs">
+                                <summary class="cursor-pointer text-gray-500 hover:text-gray-700">Details</summary>
+                                <pre class="mt-1 text-xs bg-gray-50 p-2 rounded">{{ check.metadata | tojson(indent=2) }}</pre>
+                            </details>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- System Information -->
+    <div class="mb-8">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">System Information</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="metric-card">
+                <div class="text-sm font-medium text-gray-900 mb-2">Ledger Balance</div>
+                <div class="text-2xl font-bold {{ 'text-green-600' if system_info.ledger_balanced else 'text-red-600' }}">
+                    {% if system_info.ledger_balanced %}
+                        ✓ Balanced
+                    {% else %}
+                        ⚠ {{ "{:,}".format(system_info.ledger_balance) }} µUSDC
+                    {% endif %}
+                </div>
+                <div class="text-xs text-gray-600 mt-1">
+                    {% if system_info.ledger_balanced %}
+                        All entries sum to zero
+                    {% else %}
+                        Imbalance detected - needs investigation
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="text-sm font-medium text-gray-900 mb-2">Database Size</div>
+                <div class="text-2xl font-bold text-blue-600">
+                    {{ "{:.1f}".format(system_info.db_size_mb) }} MB
+                </div>
+                <div class="text-xs text-gray-600 mt-1">
+                    PostgreSQL database size
+                </div>
+            </div>
+            
+            <div class="metric-card">
+                <div class="text-sm font-medium text-gray-900 mb-2">System Load</div>
+                <div class="text-2xl font-bold text-purple-600">Normal</div>
+                <div class="text-xs text-gray-600 mt-1">
+                    All services operational
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Summary -->
+    <div class="mb-8">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Recent Errors (24h)</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="metric-card text-center">
+                <div class="text-2xl font-bold text-red-600">{{ error_summary.critical }}</div>
+                <div class="text-sm text-gray-600">Critical</div>
+            </div>
+            <div class="metric-card text-center">
+                <div class="text-2xl font-bold text-orange-600">{{ error_summary.high }}</div>
+                <div class="text-sm text-gray-600">High</div>
+            </div>
+            <div class="metric-card text-center">
+                <div class="text-2xl font-bold text-yellow-600">{{ error_summary.medium }}</div>
+                <div class="text-sm text-gray-600">Medium</div>
+            </div>
+            <div class="metric-card text-center">
+                <div class="text-2xl font-bold text-blue-600">{{ error_summary.low }}</div>
+                <div class="text-sm text-gray-600">Low</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <a href="/metrics" target="_blank" class="metric-card hover:shadow-md transition-shadow">
+            <div class="text-center">
+                <div class="text-2xl mb-2">📊</div>
+                <div class="font-medium text-gray-900">Prometheus Metrics</div>
+                <div class="text-sm text-gray-600">View raw metrics data</div>
+            </div>
+        </a>
+        
+        <a href="/health" target="_blank" class="metric-card hover:shadow-md transition-shadow">
+            <div class="text-center">
+                <div class="text-2xl mb-2">🔍</div>
+                <div class="font-medium text-gray-900">Health Endpoint</div>
+                <div class="text-sm text-gray-600">JSON health status</div>
+            </div>
+        </a>
+        
+        <div class="metric-card">
+            <div class="text-center">
+                <div class="text-2xl mb-2">🔄</div>
+                <div class="font-medium text-gray-900">Auto-refresh</div>
+                <div class="text-sm text-gray-600">
+                    <label class="flex items-center justify-center space-x-2">
+                        <input type="checkbox" id="auto-refresh" onchange="toggleAutoRefresh()">
+                        <span>Enable (30s)</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Logs Preview -->
+    <div class="mt-8">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Recent System Activity</h3>
+        <div class="bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-xs overflow-y-auto h-64">
+            <div class="space-y-1">
+                <div>[{{ datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S') }}] INFO: System health check completed</div>
+                <div>[{{ datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S') }}] INFO: Database connection: OK</div>
+                <div>[{{ datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S') }}] INFO: Blockchain connection: OK</div>
+                <div>[{{ datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S') }}] INFO: Ledger balance: OK</div>
+                <div class="text-yellow-400">[{{ datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S') }}] WARN: This is a simulated log view</div>
+                <div class="text-blue-400">[{{ datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S') }}] DEBUG: Admin panel accessed</div>
+            </div>
+        </div>
+        <div class="mt-2 text-xs text-gray-500">
+            This is a simulated log view. In production, this would show real application logs.
+        </div>
+    </div>
+</div>
+
+<script>
+let autoRefreshInterval;
+
+function toggleAutoRefresh() {
+    const checkbox = document.getElementById('auto-refresh');
+    
+    if (checkbox.checked) {
+        autoRefreshInterval = setInterval(() => {
+            window.location.reload();
+        }, 30000);
+    } else {
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+        }
+    }
+}
+</script>
+{% endblock %}

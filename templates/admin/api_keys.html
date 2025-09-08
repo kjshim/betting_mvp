@@ -1,0 +1,191 @@
+{% extends "admin/base.html" %}
+
+{% block title %}API Keys{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">API Key Management</h2>
+            <p class="mt-1 text-sm text-gray-600">Manage API keys for authentication and access control</p>
+        </div>
+        
+        <button onclick="document.getElementById('create-modal').style.display='block'" 
+                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+            Create API Key
+        </button>
+    </div>
+
+    <!-- Show newly created key -->
+    {% if request.query_params.get('created_key') %}
+    <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-md">
+        <h3 class="text-lg font-medium text-green-800">API Key Created Successfully!</h3>
+        <p class="mt-1 text-sm text-green-700">
+            Save this key now - it won't be shown again:
+        </p>
+        <div class="mt-2 p-3 bg-white border border-green-300 rounded font-mono text-sm break-all">
+            {{ request.query_params.get('created_key') }}
+        </div>
+        <p class="mt-2 text-xs text-green-600">
+            Key ID: {{ request.query_params.get('key_id') }}
+        </p>
+    </div>
+    {% endif %}
+
+    <!-- API Keys Table -->
+    <div class="bg-white shadow rounded-lg overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Used</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for key in api_keys %}
+                <tr class="table-row">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">{{ key.name }}</div>
+                        <div class="text-xs text-gray-500 font-mono">{{ key.id.hex[:8] }}...</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                            {% if key.role == 'admin' %}bg-red-100 text-red-800
+                            {% elif key.role == 'user' %}bg-blue-100 text-blue-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ key.role.upper() }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {% if key.user_id %}
+                            <span class="font-mono">{{ key.user_id.hex[:8] }}...</span>
+                        {% else %}
+                            <span class="text-gray-400">System</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full border
+                            {% if key.is_active == 'true' %}status-healthy
+                            {% else %}status-unhealthy{% endif %}">
+                            {% if key.is_active == 'true' %}ACTIVE{% else %}REVOKED{% endif %}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {{ key.created_at.strftime('%Y-%m-%d %H:%M') }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {% if key.last_used %}
+                            {{ key.last_used.strftime('%Y-%m-%d %H:%M') }}
+                        {% else %}
+                            <span class="text-gray-400">Never</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        {% if key.is_active == 'true' %}
+                        <form method="post" action="/admin/api-keys/{{ key.id }}/revoke" 
+                              style="display: inline;"
+                              onsubmit="return confirmAction('revoke this API key')">
+                            <button type="submit" 
+                                    class="text-red-600 hover:text-red-900">
+                                Revoke
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="text-gray-400">Revoked</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        {% if api_keys|length == 0 %}
+        <div class="text-center py-8 text-gray-500">
+            No API keys found
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Usage Instructions -->
+    <div class="mt-8 bg-blue-50 border border-blue-200 rounded-md p-4">
+        <h3 class="text-sm font-medium text-blue-800">API Usage</h3>
+        <div class="mt-2 text-sm text-blue-700">
+            <p>Include the API key in the Authorization header:</p>
+            <pre class="mt-2 text-xs">curl -H "Authorization: Bearer YOUR_API_KEY" https://your-domain.com/api/endpoint</pre>
+        </div>
+        <div class="mt-2 text-xs text-blue-600">
+            <strong>Roles:</strong> 
+            <span class="font-mono bg-white px-1 rounded">admin</span> - Full access, 
+            <span class="font-mono bg-white px-1 rounded">user</span> - Betting operations, 
+            <span class="font-mono bg-white px-1 rounded">readonly</span> - View only
+        </div>
+    </div>
+</div>
+
+<!-- Create API Key Modal -->
+<div id="create-modal" style="display: none;" 
+     class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Create New API Key</h3>
+        
+        <form method="post" action="/admin/api-keys/create">
+            <div class="space-y-4">
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
+                    <input type="text" name="name" id="name" required
+                           placeholder="e.g., Production API, Test Key"
+                           class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                
+                <div>
+                    <label for="role" class="block text-sm font-medium text-gray-700">Role</label>
+                    <select name="role" id="role" required
+                            class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        <option value="readonly">Readonly - View only</option>
+                        <option value="user">User - Betting operations</option>
+                        <option value="admin">Admin - Full access</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="user_id" class="block text-sm font-medium text-gray-700">
+                        User ID (Optional)
+                    </label>
+                    <input type="text" name="user_id" id="user_id"
+                           placeholder="Leave blank for system-level key"
+                           class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    <p class="mt-1 text-xs text-gray-500">
+                        For user-level keys, specify the user's UUID
+                    </p>
+                </div>
+            </div>
+            
+            <div class="mt-6 flex justify-end space-x-3">
+                <button type="button" 
+                        onclick="document.getElementById('create-modal').style.display='none'"
+                        class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
+                    Cancel
+                </button>
+                <button type="submit" 
+                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                    Create Key
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Close modal when clicking outside
+document.getElementById('create-modal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        this.style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

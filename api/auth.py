@@ -3,14 +3,14 @@ import secrets
 from enum import Enum
 from typing import Optional
 
-from fastapi import HTTPException, Security, status
+from fastapi import HTTPException, Security, status, Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import Column, DateTime, String, func, select
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
-from infra.db import Base
+from infra.db import Base, get_async_db
 
 
 class ApiKeyRole(str, Enum):
@@ -49,7 +49,7 @@ class ApiKeyAuth:
     async def get_current_api_key(
         self, 
         credentials: Optional[HTTPAuthorizationCredentials] = Security(HTTPBearer(auto_error=False)),
-        db: AsyncSession = None
+        db: AsyncSession = Depends(get_async_db)
     ) -> Optional[ApiKey]:
         """Get current API key from request"""
         if not credentials:
@@ -78,7 +78,7 @@ class ApiKeyAuth:
         """Decorator to require specific role"""
         async def dependency(
             credentials: HTTPAuthorizationCredentials = Security(self.security),
-            db: AsyncSession = None
+            db: AsyncSession = Depends(get_async_db)
         ) -> ApiKey:
             if not credentials:
                 raise HTTPException(
@@ -120,7 +120,7 @@ class ApiKeyAuth:
         """Optional authentication for public endpoints"""
         async def dependency(
             credentials: Optional[HTTPAuthorizationCredentials] = Security(HTTPBearer(auto_error=False)),
-            db: AsyncSession = None
+            db: AsyncSession = Depends(get_async_db)
         ) -> Optional[ApiKey]:
             if credentials:
                 return await self.get_current_api_key(credentials, db)

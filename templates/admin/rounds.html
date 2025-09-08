@@ -1,0 +1,149 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Rounds{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">Round Management</h2>
+            <p class="mt-1 text-sm text-gray-600">Monitor betting rounds and their status</p>
+        </div>
+    </div>
+
+    <!-- Rounds Table -->
+    <div class="bg-white shadow rounded-lg overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Bets</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Volume</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">UP Pool</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DOWN Pool</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Result</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Times</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for round_data in rounds %}
+                {% set round = round_data.round %}
+                <tr class="table-row">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">{{ round.code }}</div>
+                        <div class="text-xs text-gray-500 font-mono">{{ round.id.hex[:8] }}...</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                            {% if round.status.value == 'OPEN' %}bg-green-100 text-green-800
+                            {% elif round.status.value == 'LOCKED' %}bg-yellow-100 text-yellow-800
+                            {% elif round.status.value == 'SETTLED' %}bg-gray-100 text-gray-800
+                            {% else %}bg-red-100 text-red-800{% endif %}">
+                            {{ round.status.value }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {{ round_data.bet_count }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">
+                            ${{ "{:,.2f}".format(round_data.total_volume_usdc) }}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-green-600">
+                            ${{ "{:,.2f}".format(round_data.up_pool_usdc) }}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-red-600">
+                            ${{ "{:,.2f}".format(round_data.down_pool_usdc) }}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if round.result %}
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                            {% if round.result.value == 'UP' %}bg-green-100 text-green-800
+                            {% elif round.result.value == 'DOWN' %}bg-red-100 text-red-800  
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ round.result.value }}
+                        </span>
+                        {% else %}
+                        <span class="text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">
+                            <div>Start: {{ round.start_ts.strftime('%m-%d %H:%M') }}</div>
+                            {% if round.lock_ts %}
+                            <div class="text-xs text-gray-500">Lock: {{ round.lock_ts.strftime('%m-%d %H:%M') }}</div>
+                            {% endif %}
+                            {% if round.settle_ts %}
+                            <div class="text-xs text-gray-500">Settle: {{ round.settle_ts.strftime('%m-%d %H:%M') }}</div>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        {% if rounds|length == 0 %}
+        <div class="text-center py-8 text-gray-500">
+            No rounds found
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="mt-6 flex items-center justify-between">
+        <div class="text-sm text-gray-700">
+            Page {{ page }} of {{ total_pages }}
+        </div>
+        <div class="flex space-x-2">
+            {% if has_prev %}
+            <a href="?page={{ page - 1 }}" 
+               class="px-3 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                Previous
+            </a>
+            {% endif %}
+            
+            {% if has_next %}
+            <a href="?page={{ page + 1 }}" 
+               class="px-3 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                Next
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Round Statistics -->
+    <div class="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="metric-card">
+            <div class="text-xs text-gray-500 mb-1">Showing</div>
+            <div class="text-lg font-semibold">{{ rounds|length }} rounds</div>
+        </div>
+        <div class="metric-card">
+            <div class="text-xs text-green-600 mb-1">Total Volume</div>
+            <div class="text-lg font-semibold">
+                ${{ "{:,.2f}".format((rounds | map(attribute='total_volume_usdc') | sum)) }}
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="text-xs text-blue-600 mb-1">Total Bets</div>
+            <div class="text-lg font-semibold">
+                {{ (rounds | map(attribute='bet_count') | sum) }}
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="text-xs text-purple-600 mb-1">Active Rounds</div>
+            <div class="text-lg font-semibold">
+                {{ rounds | selectattr('round.status.value', 'in', ['OPEN', 'LOCKED']) | list | length }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

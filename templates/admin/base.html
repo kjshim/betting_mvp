@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Admin Panel{% endblock %} - Betting MVP</title>
+    
+    <!-- Tailwind CSS for quick styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Custom styles -->
+    <style>
+        .status-healthy { @apply bg-green-100 text-green-800 border-green-200; }
+        .status-degraded { @apply bg-yellow-100 text-yellow-800 border-yellow-200; }
+        .status-unhealthy { @apply bg-red-100 text-red-800 border-red-200; }
+        
+        .nav-link { @apply block px-3 py-2 rounded-md text-sm font-medium transition-colors; }
+        .nav-link:hover { @apply bg-gray-100 text-gray-900; }
+        .nav-link.active { @apply bg-blue-100 text-blue-700; }
+        
+        .metric-card { @apply bg-white p-4 rounded-lg shadow border; }
+        .metric-value { @apply text-2xl font-bold; }
+        .metric-label { @apply text-sm text-gray-600; }
+        
+        .table-row:hover { @apply bg-gray-50; }
+        
+        .alert-success { @apply bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded; }
+        .alert-error { @apply bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded; }
+        .alert-warning { @apply bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded; }
+        
+        pre { @apply bg-gray-100 p-2 rounded text-xs overflow-x-auto; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <h1 class="text-xl font-bold text-gray-900">🎲 Betting MVP Admin</h1>
+                    </div>
+                    
+                    <div class="ml-6 flex space-x-8">
+                        <a href="/admin/" class="nav-link {{ 'active' if request.url.path == '/admin/' }}">
+                            Dashboard
+                        </a>
+                        <a href="/admin/users" class="nav-link {{ 'active' if '/users' in request.url.path }}">
+                            Users
+                        </a>
+                        <a href="/admin/transactions" class="nav-link {{ 'active' if '/transactions' in request.url.path }}">
+                            Transactions
+                        </a>
+                        <a href="/admin/rounds" class="nav-link {{ 'active' if '/rounds' in request.url.path }}">
+                            Rounds
+                        </a>
+                        <a href="/admin/api-keys" class="nav-link {{ 'active' if '/api-keys' in request.url.path }}">
+                            API Keys
+                        </a>
+                        <a href="/admin/system" class="nav-link {{ 'active' if '/system' in request.url.path }}">
+                            System
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="flex items-center">
+                    <span class="text-sm text-gray-600">Admin Panel</span>
+                    <a href="/docs" target="_blank" class="ml-4 text-sm text-blue-600 hover:text-blue-700">
+                        API Docs
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        {% if request.query_params.get('message') %}
+        <div class="mb-4">
+            <div class="alert-success">
+                {{ request.query_params.get('message').replace('+', ' ') }}
+            </div>
+        </div>
+        {% endif %}
+        
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t mt-12">
+        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+            <p class="text-center text-sm text-gray-500">
+                Betting MVP Admin Panel - 
+                <span class="text-xs">Last updated: {{ datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC') }}</span>
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        // Simple JavaScript utilities
+        function formatNumber(num) {
+            return new Intl.NumberFormat().format(num);
+        }
+        
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 6
+            }).format(amount);
+        }
+        
+        // Auto-refresh for dashboard (every 30 seconds)
+        if (window.location.pathname === '/admin/') {
+            setTimeout(() => {
+                window.location.reload();
+            }, 30000);
+        }
+        
+        // Confirmation dialogs
+        function confirmAction(action) {
+            return confirm(`Are you sure you want to ${action}?`);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,132 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Users{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">User Management</h2>
+            <p class="mt-1 text-sm text-gray-600">Manage user accounts and monitor balances</p>
+        </div>
+    </div>
+
+    <!-- Search -->
+    <div class="mb-6">
+        <form method="get" class="flex items-center space-x-4">
+            <div class="flex-1">
+                <input type="text" name="search" value="{{ search }}" 
+                       placeholder="Search by email..." 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <button type="submit" 
+                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                Search
+            </button>
+            {% if search %}
+            <a href="/admin/users" 
+               class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
+                Clear
+            </a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Users Table -->
+    <div class="bg-white shadow rounded-lg overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cash Balance</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Locked</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Bets</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for user_data in users %}
+                <tr class="table-row">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-8 w-8">
+                                <div class="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                                    <span class="text-xs font-medium text-gray-600">
+                                        {{ user_data.user.email[0].upper() }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900">{{ user_data.user.email }}</div>
+                                <div class="text-xs text-gray-500">ID: {{ user_data.user.id }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium {{ 'text-green-600' if user_data.balance_usdc > 0 else 'text-gray-900' }}">
+                            ${{ "{:,.6f}".format(user_data.balance_usdc) }}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">
+                            {% if user_data.locked_usdc > 0 %}
+                                <span class="text-yellow-600">${{ "{:,.6f}".format(user_data.locked_usdc) }}</span>
+                            {% else %}
+                                $0.00
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {{ user_data.bet_count }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {{ user_data.user.created_at.strftime('%Y-%m-%d') }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <a href="/admin/user/{{ user_data.user.id }}" 
+                           class="text-blue-600 hover:text-blue-900">
+                            View Details
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        {% if users|length == 0 %}
+        <div class="text-center py-8 text-gray-500">
+            {% if search %}
+                No users found matching "{{ search }}"
+            {% else %}
+                No users found
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="mt-6 flex items-center justify-between">
+        <div class="text-sm text-gray-700">
+            Page {{ page }} of {{ total_pages }}
+        </div>
+        <div class="flex space-x-2">
+            {% if has_prev %}
+            <a href="?page={{ page - 1 }}{% if search %}&search={{ search }}{% endif %}" 
+               class="px-3 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                Previous
+            </a>
+            {% endif %}
+            
+            {% if has_next %}
+            <a href="?page={{ page + 1 }}{% if search %}&search={{ search }}{% endif %}" 
+               class="px-3 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                Next
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

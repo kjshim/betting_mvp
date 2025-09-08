@@ -1,0 +1,215 @@
+/* Custom styles for admin interface */
+
+/* Status indicators */
+.status-healthy {
+    background-color: rgb(220 252 231);
+    color: rgb(22 163 74);
+    border-color: rgb(34 197 94);
+}
+
+.status-degraded {
+    background-color: rgb(254 240 138);
+    color: rgb(202 138 4);
+    border-color: rgb(245 158 11);
+}
+
+.status-unhealthy {
+    background-color: rgb(254 226 226);
+    color: rgb(220 38 38);
+    border-color: rgb(248 113 113);
+}
+
+/* Metric cards */
+.metric-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.metric-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.metric-label {
+    font-size: 0.75rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Table row hover effects */
+.table-row:hover {
+    background-color: #f9fafb;
+}
+
+/* Navigation active state */
+.nav-link.active {
+    color: #3b82f6;
+    background-color: #eff6ff;
+    border-right: 3px solid #3b82f6;
+}
+
+/* Form elements */
+.form-input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.form-input:focus {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    ring: 2px;
+    ring-color: #3b82f6;
+    border-color: #3b82f6;
+}
+
+/* Button styles */
+.btn-primary {
+    background-color: #3b82f6;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease-in-out;
+}
+
+.btn-primary:hover {
+    background-color: #2563eb;
+}
+
+.btn-secondary {
+    background-color: #6b7280;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease-in-out;
+}
+
+.btn-secondary:hover {
+    background-color: #4b5563;
+}
+
+.btn-danger {
+    background-color: #dc2626;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease-in-out;
+}
+
+.btn-danger:hover {
+    background-color: #b91c1c;
+}
+
+/* Loading spinner */
+.spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Alert styles */
+.alert {
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.alert-success {
+    background-color: rgb(220 252 231);
+    color: rgb(22 163 74);
+    border: 1px solid rgb(34 197 94);
+}
+
+.alert-error {
+    background-color: rgb(254 226 226);
+    color: rgb(220 38 38);
+    border: 1px solid rgb(248 113 113);
+}
+
+.alert-warning {
+    background-color: rgb(254 240 138);
+    color: rgb(202 138 4);
+    border: 1px solid rgb(245 158 11);
+}
+
+.alert-info {
+    background-color: rgb(219 234 254);
+    color: rgb(29 78 216);
+    border: 1px solid rgb(59 130 246);
+}
+
+/* Code blocks */
+.code-block {
+    background-color: #1f2937;
+    color: #d1fae5;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+    overflow-x: auto;
+}
+
+/* Responsive utilities */
+@media (max-width: 768px) {
+    .metric-card {
+        margin-bottom: 1rem;
+    }
+    
+    .table-container {
+        overflow-x: auto;
+    }
+    
+    .nav-mobile {
+        display: block;
+    }
+    
+    .nav-desktop {
+        display: none;
+    }
+}
+
+@media (min-width: 769px) {
+    .nav-mobile {
+        display: none;
+    }
+    
+    .nav-desktop {
+        display: block;
+    }
+}
+
+/* Utility classes */
+.truncate-long {
+    max-width: 150px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}

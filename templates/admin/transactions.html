@@ -1,0 +1,183 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Transactions{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 sm:px-0">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">Transaction Monitor</h2>
+            <p class="mt-1 text-sm text-gray-600">Monitor deposits, withdrawals, and their status</p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="mb-6">
+        <form method="get" class="flex items-center space-x-4">
+            <div>
+                <select name="type_filter" 
+                        class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">All Types</option>
+                    {% for type in transfer_types %}
+                    <option value="{{ type }}" {% if type_filter == type %}selected{% endif %}>
+                        {{ type.title() }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div>
+                <select name="status_filter" 
+                        class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">All Statuses</option>
+                    {% for status in transfer_statuses %}
+                    <option value="{{ status }}" {% if status_filter == status %}selected{% endif %}>
+                        {{ status.title() }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <button type="submit" 
+                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                Filter
+            </button>
+            
+            {% if status_filter or type_filter %}
+            <a href="/admin/transactions" 
+               class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
+                Clear
+            </a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Transactions Table -->
+    <div class="bg-white shadow rounded-lg overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TX Hash</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for transfer, user_email in transactions %}
+                <tr class="table-row">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-mono text-gray-900">{{ transfer.id.hex[:8] }}...</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">{{ user_email }}</div>
+                        <div class="text-xs text-gray-500">{{ transfer.user_id.hex[:8] }}...</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                            {% if transfer.type.value == 'DEPOSIT' %}bg-green-100 text-green-800
+                            {% else %}bg-blue-100 text-blue-800{% endif %}">
+                            {{ transfer.type.value }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-gray-900">
+                            ${{ "{:,.6f}".format(transfer.amount_u / 1000000) }}
+                        </div>
+                        <div class="text-xs text-gray-500">{{ "{:,}".format(transfer.amount_u) }} µUSDC</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full border
+                            {% if transfer.status.value == 'CONFIRMED' %}status-healthy
+                            {% elif transfer.status.value == 'PENDING' %}status-degraded
+                            {% else %}status-unhealthy{% endif %}">
+                            {{ transfer.status.value }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if transfer.tx_hash %}
+                        <div class="text-sm font-mono text-gray-900">
+                            <a href="https://basescan.org/tx/{{ transfer.tx_hash }}" 
+                               target="_blank" 
+                               class="text-blue-600 hover:text-blue-800">
+                                {{ transfer.tx_hash[:10] }}...
+                            </a>
+                        </div>
+                        {% else %}
+                        <span class="text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">{{ transfer.created_at.strftime('%Y-%m-%d') }}</div>
+                        <div class="text-xs text-gray-500">{{ transfer.created_at.strftime('%H:%M:%S') }}</div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        {% if transactions|length == 0 %}
+        <div class="text-center py-8 text-gray-500">
+            {% if status_filter or type_filter %}
+                No transactions found matching the selected filters
+            {% else %}
+                No transactions found
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="mt-6 flex items-center justify-between">
+        <div class="text-sm text-gray-700">
+            Page {{ page }} of {{ total_pages }}
+        </div>
+        <div class="flex space-x-2">
+            {% if has_prev %}
+            <a href="?page={{ page - 1 }}{% if status_filter %}&status_filter={{ status_filter }}{% endif %}{% if type_filter %}&type_filter={{ type_filter }}{% endif %}" 
+               class="px-3 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                Previous
+            </a>
+            {% endif %}
+            
+            {% if has_next %}
+            <a href="?page={{ page + 1 }}{% if status_filter %}&status_filter={{ status_filter }}{% endif %}{% if type_filter %}&type_filter={{ type_filter }}{% endif %}" 
+               class="px-3 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                Next
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Quick Stats -->
+    <div class="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="metric-card">
+            <div class="text-xs text-gray-500 mb-1">Showing</div>
+            <div class="text-lg font-semibold">{{ transactions|length }} transactions</div>
+        </div>
+        <div class="metric-card">
+            <div class="text-xs text-green-600 mb-1">Total Volume</div>
+            <div class="text-lg font-semibold">
+                ${{ "{:,.2f}".format((transactions | map(attribute='0.amount_u') | sum) / 1000000) }}
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="text-xs text-blue-600 mb-1">Deposits</div>
+            <div class="text-lg font-semibold">
+                {{ transactions | selectattr('0.type.value', 'equalto', 'DEPOSIT') | list | length }}
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="text-xs text-purple-600 mb-1">Withdrawals</div>
+            <div class="text-lg font-semibold">
+                {{ transactions | selectattr('0.type.value', 'equalto', 'WITHDRAWAL') | list | length }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
