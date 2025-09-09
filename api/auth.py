@@ -1,139 +1,305 @@
-import hashlib
-import secrets
-from enum import Enum
+import uuid
+from datetime import datetime
 from typing import Optional
 
-from fastapi import HTTPException, Security, status, Depends
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import Column, DateTime, String, func, select
-from sqlalchemy.dialects.postgresql import UUID
+from fastapi import APIRouter, HTTPException, Depends, status, Response, Request
+from fastapi.responses import HTMLResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
 
-from infra.db import Base, get_async_db
+from auth.service import AuthService
+from auth.jwt import JWTService
+from auth.models import Session as AuthSession
+from domain.models import User
+from infra.db import get_async_db
 
-
-class ApiKeyRole(str, Enum):
-    USER = "user"           # Can place bets, check balances
-    ADMIN = "admin"         # Can manage rounds, access all endpoints  
-    READONLY = "readonly"   # Can only read data (monitoring, analytics)
-
-
-class ApiKey(Base):
-    __tablename__ = "api_keys"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=lambda: secrets.token_hex(16))
-    key_hash = Column(String(64), unique=True, nullable=False, index=True)
-    name = Column(String(100), nullable=False)
-    role = Column(String(20), nullable=False)
-    user_id = Column(UUID(as_uuid=True), nullable=True)  # For user-level keys
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    last_used = Column(DateTime(timezone=True), nullable=True)
-    is_active = Column(String(10), default="true")
+router = APIRouter(prefix="/auth", tags=["Authentication"])
+templates = Jinja2Templates(directory="templates")
+security = HTTPBearer()
+jwt_service = JWTService()
 
 
-class ApiKeyAuth:
-    def __init__(self):
-        self.security = HTTPBearer(auto_error=False)
+class SignupRequest(BaseModel):
+    email: EmailStr
+    password: str
 
-    @staticmethod
-    def generate_api_key() -> str:
-        """Generate a new API key"""
-        return f"bk_{secrets.token_urlsafe(32)}"
 
-    @staticmethod
-    def hash_key(api_key: str) -> str:
-        """Hash an API key for storage"""
-        return hashlib.sha256(api_key.encode()).hexdigest()
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
 
-    async def get_current_api_key(
-        self, 
-        credentials: Optional[HTTPAuthorizationCredentials] = Security(HTTPBearer(auto_error=False)),
-        db: AsyncSession = Depends(get_async_db)
-    ) -> Optional[ApiKey]:
-        """Get current API key from request"""
-        if not credentials:
-            return None
 
-        if not credentials.credentials.startswith("bk_"):
-            return None
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    created_at: datetime
 
-        key_hash = self.hash_key(credentials.credentials)
+    class Config:
+        from_attributes = True
+
+
+# GET endpoints for forms
+@router.get("/signup", response_class=HTMLResponse)
+async def signup_form(request: Request):
+    """Serve signup form"""
+    return templates.TemplateResponse("signup.html", {"request": request})
+
+
+@router.get("/login", response_class=HTMLResponse)
+async def login_form(request: Request):
+    """Serve login form"""
+    return templates.TemplateResponse("login.html", {"request": request})
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_async_db)
+) -> User:
+    """Get current authenticated user from JWT token"""
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+
+    # Decode token
+    payload = jwt_service.decode_token(credentials.credentials)
+    if not payload or not jwt_service.is_access_token(credentials.credentials):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
+
+    # Check if session exists
+    auth_service = AuthService(db)
+    session = await auth_service.get_session(payload["jti"])
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired"
+        )
+
+    # Get user
+    user_id = uuid.UUID(payload["sub"])
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
+
+    return user
+
+
+@router.post("/signup", response_model=TokenResponse)
+async def signup(
+    request: SignupRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Register new user"""
+    auth_service = AuthService(db)
+    
+    try:
+        user = await auth_service.create_user(request.email, request.password)
+        await db.commit()
         
-        result = await db.execute(
-            select(ApiKey).where(
-                ApiKey.key_hash == key_hash,
-                ApiKey.is_active == "true"
+        # Create session and tokens
+        jti = str(uuid.uuid4())
+        session = await auth_service.create_session(user.id, jti)
+        await db.commit()
+        
+        access_token = jwt_service.create_access_token(user.id, jti)
+        refresh_token = jwt_service.create_refresh_token(user.id, jti)
+        
+        # Set session cookie
+        response.set_cookie(
+            key="session_id",
+            value=jti,
+            httponly=True,
+            secure=True,
+            samesite="strict",
+            max_age=60 * 60 * 24 * 7  # 7 days
+        )
+        
+        return TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            user=UserResponse(
+                id=str(user.id),
+                email=user.email,
+                created_at=user.created_at
             )
         )
-        api_key = result.scalar_one_or_none()
         
-        if api_key:
-            # Update last_used timestamp
-            api_key.last_used = func.now()
-            
-        return api_key
-
-    def require_role(self, required_role: ApiKeyRole):
-        """Decorator to require specific role"""
-        async def dependency(
-            credentials: HTTPAuthorizationCredentials = Security(self.security),
-            db: AsyncSession = Depends(get_async_db)
-        ) -> ApiKey:
-            if not credentials:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="API key required",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
-
-            api_key = await self.get_current_api_key(credentials, db)
-            
-            if not api_key:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid API key",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
-
-            # Check role hierarchy: admin > user > readonly
-            role_hierarchy = {
-                ApiKeyRole.READONLY: 1,
-                ApiKeyRole.USER: 2,
-                ApiKeyRole.ADMIN: 3,
-            }
-            
-            user_level = role_hierarchy.get(ApiKeyRole(api_key.role), 0)
-            required_level = role_hierarchy.get(required_role, 999)
-            
-            if user_level < required_level:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Role '{required_role}' required, have '{api_key.role}'",
-                )
-
-            return api_key
-            
-        return dependency
-
-    def optional_auth(self):
-        """Optional authentication for public endpoints"""
-        async def dependency(
-            credentials: Optional[HTTPAuthorizationCredentials] = Security(HTTPBearer(auto_error=False)),
-            db: AsyncSession = Depends(get_async_db)
-        ) -> Optional[ApiKey]:
-            if credentials:
-                return await self.get_current_api_key(credentials, db)
-            return None
-            
-        return dependency
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
 
 
-# Global auth instance
-auth = ApiKeyAuth()
+@router.post("/login", response_model=TokenResponse)
+async def login(
+    request: LoginRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Login user"""
+    auth_service = AuthService(db)
+    
+    user = await auth_service.authenticate(request.email, request.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password"
+        )
+    
+    await db.commit()  # Commit login timestamp update
+    
+    # Create session and tokens
+    jti = str(uuid.uuid4())
+    session = await auth_service.create_session(user.id, jti)
+    await db.commit()
+    
+    access_token = jwt_service.create_access_token(user.id, jti)
+    refresh_token = jwt_service.create_refresh_token(user.id, jti)
+    
+    # Set session cookie
+    response.set_cookie(
+        key="session_id",
+        value=jti,
+        httponly=True,
+        secure=True,
+        samesite="strict",
+        max_age=60 * 60 * 24 * 7  # 7 days
+    )
+    
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user=UserResponse(
+            id=str(user.id),
+            email=user.email,
+            created_at=user.created_at
+        )
+    )
 
-# Common role requirements
-require_admin = auth.require_role(ApiKeyRole.ADMIN)
-require_user = auth.require_role(ApiKeyRole.USER)
-require_readonly = auth.require_role(ApiKeyRole.READONLY)
-optional_auth = auth.optional_auth()
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh_token(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Refresh access token"""
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+
+    # Decode refresh token
+    payload = jwt_service.decode_token(credentials.credentials)
+    if not payload or not jwt_service.is_refresh_token(credentials.credentials):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token"
+        )
+
+    # Check session
+    auth_service = AuthService(db)
+    session = await auth_service.get_session(payload["jti"])
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired"
+        )
+
+    # Get user
+    user_id = uuid.UUID(payload["sub"])
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
+
+    # Create new access token (same session)
+    access_token = jwt_service.create_access_token(user.id, payload["jti"])
+    
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=credentials.credentials,  # Return same refresh token
+        user=UserResponse(
+            id=str(user.id),
+            email=user.email,
+            created_at=user.created_at
+        )
+    )
+
+
+@router.post("/logout")
+async def logout(
+    request: Request,
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_async_db)
+):
+    """Logout user"""
+    # Get session ID from cookie or token
+    session_id = request.cookies.get("session_id")
+    
+    if session_id:
+        auth_service = AuthService(db)
+        await auth_service.revoke_session(session_id)
+        await db.commit()
+    
+    # Clear session cookie
+    response.delete_cookie("session_id")
+    
+    return {"message": "Logged out successfully"}
+
+
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_info(
+    current_user: User = Depends(get_current_user)
+):
+    """Get current user information"""
+    return UserResponse(
+        id=str(current_user.id),
+        email=current_user.email,
+        created_at=current_user.created_at
+    )
+
+
+# Mock API Key classes for compatibility (not implemented yet)
+class ApiKey:
+    pass
+
+class ApiKeyAuth:
+    pass
+
+class ApiKeyRole:
+    pass
+
+# Mock auth functions for compatibility
+async def require_admin():
+    """Placeholder admin auth function"""
+    raise HTTPException(status_code=501, detail="Admin API keys not implemented")
+
+async def require_user():
+    """Placeholder user auth function"""  
+    raise HTTPException(status_code=501, detail="User API keys not implemented")
+
+async def optional_auth():
+    """Placeholder optional auth function"""
+    return None

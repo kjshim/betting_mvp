@@ -7,7 +7,7 @@ import pytz
 import typer
 from sqlalchemy import select
 
-from cli.auth import app as auth_app
+# from cli.auth import app as auth_app
 
 from adapters.chain import MockChainGateway
 from adapters.oracle import MockOracle
@@ -29,7 +29,7 @@ from infra.settings import settings
 app = typer.Typer(help="Betting MVP CLI")
 
 # Add auth subcommand
-app.add_typer(auth_app, name="auth", help="API key management")
+# app.add_typer(auth_app, name="auth", help="API key management")
 
 def get_services(db):
     """Get all services with dependencies"""
@@ -421,6 +421,126 @@ def tvl():
         except Exception as e:
             typer.echo(f"✗ Failed to get TVL: {e}", err=True)
             raise typer.Exit(1)
+
+
+# On-chain commands
+@app.command("user")
+def create_user(
+    email: str = typer.Option(..., help="User email"),
+    password: str = typer.Option(..., help="User password")
+):
+    """Create a new user with authentication"""
+    from auth.service import AuthService
+    
+    with SessionLocal() as db:
+        try:
+            auth_service = AuthService(db)
+            
+            async def create():
+                return await auth_service.create_user(email, password)
+            
+            user = asyncio.run(create())
+            db.commit()
+            
+            typer.echo(f"✓ Created user {email} (ID: {user.id})")
+            
+        except Exception as e:
+            db.rollback()
+            typer.echo(f"✗ Failed to create user: {e}", err=True)
+            raise typer.Exit(1)
+
+
+@app.command("deposit-intent")
+def create_deposit_intent(
+    user: str = typer.Option(..., help="User email"),
+    min_amount: int = typer.Option(1000000, help="Minimum amount in micro USDC")
+):
+    """Create deposit intent with address and QR (Solana only)"""
+    from onramp.models import ChainType
+    from onramp.deposit_intents import DepositIntentService
+    from onramp.qr import QRService
+    from adapters.onchain.solana_simple import SolanaUSDCAdapterSimple
+    
+    with SessionLocal() as db:
+        try:
+            # Find user
+            user_result = db.execute(select(User).where(User.email == user))
+            user_obj = user_result.scalar_one_or_none()
+            
+            if not user_obj:
+                typer.echo(f"✗ User not found: {user}", err=True)
+                raise typer.Exit(1)
+            
+            # Create Solana gateway
+            chain_type = ChainType.SOL
+            gateway = SolanaUSDCAdapterSimple(
+                rpc_url=settings.solana_rpc_url,
+                usdc_mint=settings.solana_usdc_mint,
+                min_confirmations=settings.solana_min_conf
+            )
+            
+            # Create intent
+            ledger = LedgerService(db)
+            intent_service = DepositIntentService(db, ledger)
+            
+            # Create intent (sync version for CLI)
+            intent = intent_service.create_intent_sync(
+                user_obj.id, chain_type, gateway, min_amount
+            )
+            db.commit()
+            
+            # Generate payment URI and QR
+            async def build_uri():
+                return await gateway.build_payment_uri(
+                    intent.address, min_amount, intent.id
+                )
+            
+            payment_uri = asyncio.run(build_uri())
+            qr_code = QRService.generate_qr_code(payment_uri)
+            
+            typer.echo(f"✓ Created deposit intent for {user}")
+            typer.echo(f"  Intent ID: {intent.id}")
+            typer.echo(f"  Chain: SOL")
+            typer.echo(f"  Address: {intent.address}")
+            typer.echo(f"  Min Amount: {min_amount:,} micro USDC")
+            typer.echo(f"  Payment URI: {payment_uri}")
+            typer.echo(f"  QR Code: [base64 data generated]")
+            
+        except Exception as e:
+            db.rollback()
+            typer.echo(f"✗ Failed to create deposit intent: {e}", err=True)
+            raise typer.Exit(1)
+
+
+@app.command("onchain")
+def onchain_commands():
+    """On-chain operation commands"""
+    typer.echo("Available on-chain commands:")
+    typer.echo("  faucet - Send test USDC to address")
+    typer.echo("  tx-status - Check transaction status")
+    typer.echo("  balance - Check address balance")
+
+
+@app.command("faucet")
+def faucet(
+    to: str = typer.Option(..., help="Destination address"),
+    amount: int = typer.Option(1000000000, help="Amount in micro USDC")
+):
+    """Send test USDC to Solana address (simulator/testnet only)"""
+    typer.echo(f"🚰 Faucet: {amount:,} micro USDC to {to} on Solana")
+    typer.echo("  This would send test USDC in a real testnet environment")
+    typer.echo(f"  Mock transaction: {uuid.uuid4().hex[:16]}")
+
+
+@app.command("tx-status")
+def tx_status(
+    tx: str = typer.Option(..., help="Transaction signature")
+):
+    """Check Solana transaction status"""
+    typer.echo(f"🔍 Checking Solana transaction {tx}")
+    typer.echo("  Status: Confirmed")
+    typer.echo("  Confirmations: 10")
+    typer.echo("  This would query actual Solana RPC in production")
 
 
 @app.command()

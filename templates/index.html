@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Betting MVP - 24h Up/Down Trading</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <h1 class="text-2xl font-bold text-gray-900">
+                        <i class="fas fa-chart-line text-blue-600 mr-2"></i>
+                        Betting MVP
+                    </h1>
+                </div>
+                <div class="flex space-x-4">
+                    <a href="/auth/signup" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+                        Sign Up
+                    </a>
+                    <a href="/auth/login" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700">
+                        Login
+                    </a>
+                    <a href="/admin/" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">
+                        Admin
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <div class="relative bg-gradient-to-br from-blue-600 to-purple-700 text-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+            <div class="text-center">
+                <h2 class="text-4xl md:text-6xl font-bold mb-6">
+                    24h Up/Down Betting
+                </h2>
+                <p class="text-xl md:text-2xl mb-8 text-blue-100">
+                    Bet on NASDAQ close direction • Solana USDC deposits • Real-time settlement
+                </p>
+                <div class="flex justify-center space-x-4">
+                    <a href="/docs" class="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-blue-50 transition">
+                        <i class="fas fa-book mr-2"></i>
+                        API Documentation
+                    </a>
+                    <a href="/health" class="bg-blue-500 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-400 transition">
+                        <i class="fas fa-heartbeat mr-2"></i>
+                        System Health
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features -->
+    <div class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h3 class="text-3xl font-bold text-gray-900 mb-4">Production-Ready Features</h3>
+                <p class="text-lg text-gray-600">Built with real-world financial applications in mind</p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- Authentication -->
+                <div class="text-center p-6 bg-blue-50 rounded-xl">
+                    <div class="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-shield-alt text-white text-2xl"></i>
+                    </div>
+                    <h4 class="text-xl font-semibold mb-3">Secure Authentication</h4>
+                    <p class="text-gray-600">JWT tokens, Argon2 hashing, session management</p>
+                </div>
+
+                <!-- On-Chain -->
+                <div class="text-center p-6 bg-green-50 rounded-xl">
+                    <div class="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-link text-white text-2xl"></i>
+                    </div>
+                    <h4 class="text-xl font-semibold mb-3">Solana USDC Integration</h4>
+                    <p class="text-gray-600">Native Solana SPL-USDC with real chain integration</p>
+                </div>
+
+                <!-- Monitoring -->
+                <div class="text-center p-6 bg-purple-50 rounded-xl">
+                    <div class="w-16 h-16 bg-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-chart-bar text-white text-2xl"></i>
+                    </div>
+                    <h4 class="text-xl font-semibold mb-3">Real-Time Monitoring</h4>
+                    <p class="text-gray-600">Prometheus metrics, health checks, admin dashboard</p>
+                </div>
+
+                <!-- Ledger -->
+                <div class="text-center p-6 bg-yellow-50 rounded-xl">
+                    <div class="w-16 h-16 bg-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-balance-scale text-white text-2xl"></i>
+                    </div>
+                    <h4 class="text-xl font-semibold mb-3">Double-Entry Ledger</h4>
+                    <p class="text-gray-600">Micro-USDC precision, audit trails, zero-sum integrity</p>
+                </div>
+
+                <!-- Testing -->
+                <div class="text-center p-6 bg-red-50 rounded-xl">
+                    <div class="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-vial text-white text-2xl"></i>
+                    </div>
+                    <h4 class="text-xl font-semibold mb-3">Comprehensive Testing</h4>
+                    <p class="text-gray-600">CI with simulators, property testing, 27+ integration tests</p>
+                </div>
+
+                <!-- API -->
+                <div class="text-center p-6 bg-indigo-50 rounded-xl">
+                    <div class="w-16 h-16 bg-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-code text-white text-2xl"></i>
+                    </div>
+                    <h4 class="text-xl font-semibold mb-3">Complete API</h4>
+                    <p class="text-gray-600">FastAPI, async/await, OpenAPI docs, CLI tools</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Endpoints -->
+    <div class="py-20 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h3 class="text-3xl font-bold text-gray-900 mb-4">API Endpoints</h3>
+                <p class="text-lg text-gray-600">RESTful API with comprehensive functionality</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-8">
+                <!-- Auth Endpoints -->
+                <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <h4 class="text-xl font-semibold mb-4 text-blue-600">
+                        <i class="fas fa-user-shield mr-2"></i>
+                        Authentication
+                    </h4>
+                    <div class="space-y-2 text-sm font-mono">
+                        <div><span class="text-green-600">POST</span> /auth/signup</div>
+                        <div><span class="text-green-600">POST</span> /auth/login</div>
+                        <div><span class="text-green-600">POST</span> /auth/refresh</div>
+                        <div><span class="text-green-600">POST</span> /auth/logout</div>
+                        <div><span class="text-blue-600">GET</span> /auth/me</div>
+                    </div>
+                </div>
+
+                <!-- Wallet Endpoints -->
+                <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <h4 class="text-xl font-semibold mb-4 text-green-600">
+                        <i class="fas fa-wallet mr-2"></i>
+                        Wallet & On-Chain
+                    </h4>
+                    <div class="space-y-2 text-sm font-mono">
+                        <div><span class="text-blue-600">GET</span> /wallet/balance</div>
+                        <div><span class="text-green-600">POST</span> /wallet/deposit-intents</div>
+                        <div><span class="text-green-600">POST</span> /wallet/withdraw</div>
+                        <div><span class="text-blue-600">GET</span> /wallet/withdrawals</div>
+                    </div>
+                </div>
+
+                <!-- Betting Endpoints -->
+                <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <h4 class="text-xl font-semibold mb-4 text-purple-600">
+                        <i class="fas fa-dice mr-2"></i>
+                        Betting Operations
+                    </h4>
+                    <div class="space-y-2 text-sm font-mono">
+                        <div><span class="text-green-600">POST</span> /bets</div>
+                        <div><span class="text-blue-600">GET</span> /rounds/current</div>
+                        <div><span class="text-blue-600">GET</span> /tvl</div>
+                    </div>
+                </div>
+
+                <!-- Admin Endpoints -->
+                <div class="bg-white p-6 rounded-xl shadow-sm">
+                    <h4 class="text-xl font-semibold mb-4 text-red-600">
+                        <i class="fas fa-cogs mr-2"></i>
+                        Admin & Monitoring
+                    </h4>
+                    <div class="space-y-2 text-sm font-mono">
+                        <div><span class="text-blue-600">GET</span> /admin/dashboard</div>
+                        <div><span class="text-green-600">POST</span> /admin/rounds/{code}/settle</div>
+                        <div><span class="text-blue-600">GET</span> /health</div>
+                        <div><span class="text-blue-600">GET</span> /metrics</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status -->
+    <div class="py-20 bg-white">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h3 class="text-3xl font-bold text-gray-900 mb-8">Current Status</h3>
+            
+            <div class="grid md:grid-cols-2 gap-8">
+                <!-- Production Ready -->
+                <div class="bg-green-50 p-6 rounded-xl">
+                    <h4 class="text-xl font-semibold text-green-800 mb-4">
+                        <i class="fas fa-check-circle mr-2"></i>
+                        Production Ready
+                    </h4>
+                    <ul class="text-left space-y-2 text-green-700">
+                        <li>✅ User authentication & sessions</li>
+                        <li>✅ Solana USDC integration</li>
+                        <li>✅ Real-time chain monitoring</li>
+                        <li>✅ Double-entry ledger accounting</li>
+                        <li>✅ Admin interface with settlement</li>
+                        <li>✅ Comprehensive test suite</li>
+                        <li>✅ CI/CD with chain simulators</li>
+                    </ul>
+                </div>
+
+                <!-- Next Steps -->
+                <div class="bg-blue-50 p-6 rounded-xl">
+                    <h4 class="text-xl font-semibold text-blue-800 mb-4">
+                        <i class="fas fa-road mr-2"></i>
+                        Next Steps
+                    </h4>
+                    <ul class="text-left space-y-2 text-blue-700">
+                        <li>🔄 Mainnet deployment</li>
+                        <li>🔄 Rate limiting & security hardening</li>
+                        <li>🔄 Webhook endpoints for faster monitoring</li>
+                        <li>🔄 Advanced analytics dashboard</li>
+                        <li>🔄 Multi-region scaling</li>
+                        <li>🔄 Mobile-optimized UI</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center">
+                <h4 class="text-2xl font-bold mb-4">Betting MVP</h4>
+                <p class="text-gray-400 mb-6">Production-ready 24h Up/Down betting with real chain integration</p>
+                <div class="flex justify-center space-x-6">
+                    <a href="/docs" class="text-gray-400 hover:text-white">
+                        <i class="fas fa-book"></i> Documentation
+                    </a>
+                    <a href="/health" class="text-gray-400 hover:text-white">
+                        <i class="fas fa-heartbeat"></i> Health Check
+                    </a>
+                    <a href="/metrics" class="text-gray-400 hover:text-white">
+                        <i class="fas fa-chart-bar"></i> Metrics
+                    </a>
+                    <a href="/admin/" class="text-gray-400 hover:text-white">
+                        <i class="fas fa-shield-alt"></i> Admin
+                    </a>
+                </div>
+                <div class="mt-8 pt-8 border-t border-gray-800 text-gray-500">
+                    <p>&copy; 2024 Betting MVP. Built with FastAPI and Solana integration.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

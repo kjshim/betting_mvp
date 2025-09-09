@@ -5,6 +5,8 @@ from alembic import context
 from sqlalchemy import create_engine
 
 from domain.models import *  # noqa
+from auth.models import *  # noqa
+from onramp.models import *  # noqa
 from infra.db import Base
 from infra.settings import settings
 

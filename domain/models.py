@@ -9,6 +9,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from infra.db import Base
 
+# Forward reference imports
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from auth.models import UserAuth
+
 
 class TransferType(str, enum.Enum):
     DEPOSIT = "DEPOSIT"
@@ -53,6 +58,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    # Note: auth relationship handled separately to avoid circular imports
     wallets: Mapped[list["Wallet"]] = relationship("Wallet", back_populates="user")
     transfers: Mapped[list["Transfer"]] = relationship("Transfer", back_populates="user")
     bets: Mapped[list["Bet"]] = relationship("Bet", back_populates="user")

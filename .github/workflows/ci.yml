@@ -1,0 +1,169 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_app
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio pytest-cov
+    
+    - name: Set up environment
+      run: |
+        cp .env.example .env
+        # Override for CI
+        echo "DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/test_app" >> .env
+        echo "REDIS_URL=redis://localhost:6379/0" >> .env
+    
+    - name: Run migrations
+      run: |
+        python -m cli.main migrate
+    
+    - name: Run tests
+      run: |
+        pytest tests/ -v --cov=. --cov-report=xml
+    
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: false
+
+  test-solana:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_app
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install Solana CLI
+      run: |
+        sh -c "$(curl -sSfL https://release.solana.com/v1.16.18/install)"
+        export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
+        solana --version
+    
+    - name: Start Solana Test Validator
+      run: |
+        export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
+        solana-test-validator --ledger /tmp/test-ledger --quiet &
+        sleep 15
+        
+        # Verify validator is running
+        solana cluster-version --url http://localhost:8899
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio
+    
+    - name: Set up environment
+      run: |
+        cp .env.example .env
+        echo "DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/test_app" >> .env
+        echo "SOLANA_RPC_URL=http://localhost:8899" >> .env
+        echo "SOLANA_USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" >> .env
+    
+    - name: Setup Solana test environment
+      run: |
+        export PATH="/home/runner/.local/share/solana/install/active_release/bin:$PATH"
+        
+        # Create test USDC mint
+        solana-keygen new --no-bip39-passphrase --silent --outfile /tmp/mint-keypair.json
+        solana airdrop 2 --url http://localhost:8899
+        
+        # Create test mint (simulating USDC)
+        MINT_ADDRESS=$(spl-token create-token --url http://localhost:8899 --mint-keypair /tmp/mint-keypair.json --decimals 6 --output json | jq -r .address)
+        echo "Created test USDC mint: $MINT_ADDRESS"
+        echo "SOLANA_USDC_MINT=$MINT_ADDRESS" >> .env
+    
+    - name: Run database migrations
+      run: |
+        python -m cli.main migrate
+    
+    - name: Run Solana integration tests
+      run: |
+        pytest tests/test_onchain_adapters.py::TestSolanaAdapter -v --tb=short
+      timeout-minutes: 10
+
+
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install ruff black mypy
+        pip install -r requirements.txt
+    
+    - name: Run linting
+      run: |
+        black --check .
+        ruff check .
+        mypy --install-types --non-interactive .

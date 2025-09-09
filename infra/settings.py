@@ -11,6 +11,17 @@ class Settings(BaseSettings):
     close_fetch_delay_min: int = Field(default=5, ge=1)
     admin_password: str = Field(default="admin2024!")
 
+    # Authentication
+    jwt_secret: str = Field(default="dev-jwt-secret-change-in-production")
+    session_secret: str = Field(default="dev-session-secret-change-in-production")
+    argon2_memory_cost: int = Field(default=65536)
+
+    # Solana configuration
+    solana_rpc_url: str = Field(default="http://localhost:8899")
+    solana_usdc_mint: str = Field(default="EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")  # Mainnet USDC
+    solana_min_conf: int = Field(default=1)
+    solana_derive_seed: str = Field(default="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+
     class Config:
         env_file = ".env"
 

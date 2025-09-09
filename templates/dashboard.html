@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Betting MVP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <h1 class="text-2xl font-bold text-gray-900">
+                        <i class="fas fa-chart-line text-blue-600 mr-2"></i>
+                        Betting MVP
+                    </h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-gray-600" id="user-email">Loading...</span>
+                    <button onclick="logout()" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">
+                        <i class="fas fa-sign-out-alt mr-1"></i>
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Balance Card -->
+        <div class="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">
+                <i class="fas fa-wallet text-green-600 mr-2"></i>
+                Your Balance
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <div class="text-sm text-green-600 font-medium">Available Balance</div>
+                    <div class="text-2xl font-bold text-green-700" id="cash-balance">$0.00</div>
+                </div>
+                <div class="bg-yellow-50 p-4 rounded-lg">
+                    <div class="text-sm text-yellow-600 font-medium">Locked in Bets</div>
+                    <div class="text-2xl font-bold text-yellow-700" id="locked-balance">$0.00</div>
+                </div>
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <div class="text-sm text-blue-600 font-medium">Pending Withdrawals</div>
+                    <div class="text-2xl font-bold text-blue-700" id="pending-balance">$0.00</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Round & Betting -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- Current Round -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                    <i class="fas fa-clock text-blue-600 mr-2"></i>
+                    Current Round
+                </h3>
+                <div id="current-round">
+                    <div class="text-center text-gray-500 py-8">
+                        <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                        <div>Loading current round...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Place New Bet -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                    <i class="fas fa-plus-circle text-green-600 mr-2"></i>
+                    Place New Bet
+                </h3>
+                <form id="bet-form">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Bet Side</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" onclick="selectSide('UP')" id="up-btn" 
+                                    class="p-3 border-2 border-green-200 rounded-lg text-green-700 hover:bg-green-50 transition-colors">
+                                <i class="fas fa-arrow-up mr-1"></i>
+                                UP
+                            </button>
+                            <button type="button" onclick="selectSide('DOWN')" id="down-btn"
+                                    class="p-3 border-2 border-red-200 rounded-lg text-red-700 hover:bg-red-50 transition-colors">
+                                <i class="fas fa-arrow-down mr-1"></i>
+                                DOWN
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="bet-amount" class="block text-sm font-medium text-gray-700 mb-2">Amount (USDC)</label>
+                        <input type="number" id="bet-amount" min="1" step="0.01" placeholder="10.00"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <button type="submit" id="place-bet-btn" disabled
+                            class="w-full bg-gray-400 text-white py-2 px-4 rounded-md font-medium cursor-not-allowed">
+                        Select Side & Enter Amount
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Deposit Section -->
+        <div class="bg-white rounded-lg shadow p-6 mb-8">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                <i class="fas fa-plus text-green-600 mr-2"></i>
+                Deposit USDC
+            </h3>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                    <div class="mb-4">
+                        <label for="deposit-amount" class="block text-sm font-medium text-gray-700 mb-2">Amount (USDC)</label>
+                        <input type="number" id="deposit-amount" min="1" step="0.01" placeholder="100.00"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <button onclick="generateDepositAddress()" id="generate-btn"
+                            class="w-full bg-blue-600 text-white py-2 px-4 rounded-md font-medium hover:bg-blue-700">
+                        <i class="fas fa-qrcode mr-1"></i>
+                        Generate Deposit Address & QR
+                    </button>
+                    <div id="deposit-info" class="hidden mt-4 p-4 bg-blue-50 rounded-lg">
+                        <div class="text-sm font-medium text-blue-900 mb-2">Your Deposit Address:</div>
+                        <div class="font-mono text-xs break-all text-blue-800 bg-white p-2 rounded border" id="deposit-address"></div>
+                        <div class="mt-2">
+                            <button onclick="copyAddress()" class="text-sm text-blue-600 hover:text-blue-800">
+                                <i class="fas fa-copy mr-1"></i>
+                                Copy Address
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="qr-code-container" class="hidden">
+                    <div class="text-center">
+                        <div class="text-sm font-medium text-gray-700 mb-2">Scan with Solana Wallet</div>
+                        <img id="qr-code" class="mx-auto border border-gray-200 rounded" alt="QR Code">
+                        <div class="mt-2 text-xs text-gray-500">
+                            Amount: $<span id="qr-amount">0</span> USDC
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- My Bets -->
+        <div class="bg-white rounded-lg shadow p-6 mb-8">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                <i class="fas fa-list text-purple-600 mr-2"></i>
+                My Bets
+            </h3>
+            <div id="bets-table">
+                <div class="text-center text-gray-500 py-8">
+                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                    <div>Loading bets...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Deposit History -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                <i class="fas fa-history text-gray-600 mr-2"></i>
+                Deposit History
+            </h3>
+            <div id="deposits-table">
+                <div class="text-center text-gray-500 py-8">
+                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                    <div>Loading deposits...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedSide = null;
+        let currentUser = null;
+        
+        // Check authentication on load
+        window.onload = function() {
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                window.location.href = '/auth/login';
+                return;
+            }
+            
+            // Load user data
+            loadUserData();
+            loadBalance();
+            loadCurrentRound();
+            loadBets();
+            loadDeposits();
+        };
+        
+        async function loadUserData() {
+            try {
+                const response = await authenticatedFetch('/auth/me');
+                const user = await response.json();
+                currentUser = user;
+                document.getElementById('user-email').textContent = user.email;
+            } catch (error) {
+                console.error('Failed to load user data:', error);
+                logout();
+            }
+        }
+        
+        async function loadBalance() {
+            try {
+                const response = await authenticatedFetch('/wallet/balance');
+                const balance = await response.json();
+                
+                document.getElementById('cash-balance').textContent = '$' + (balance.cash_u / 1000000).toFixed(2);
+                document.getElementById('locked-balance').textContent = '$' + (balance.locked_u / 1000000).toFixed(2);
+                document.getElementById('pending-balance').textContent = '$' + (balance.pending_withdrawals_u / 1000000).toFixed(2);
+            } catch (error) {
+                console.error('Failed to load balance:', error);
+            }
+        }
+        
+        async function loadCurrentRound() {
+            try {
+                const response = await authenticatedFetch('/rounds/current');
+                const round = await response.json();
+                
+                if (round) {
+                    document.getElementById('current-round').innerHTML = `
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-600 mb-2">Round ${round.code}</div>
+                            <div class="text-sm text-gray-600 mb-4">
+                                Status: <span class="font-medium">${round.status}</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div>Start: ${new Date(round.start_ts).toLocaleString()}</div>
+                                <div>Lock: ${new Date(round.lock_ts).toLocaleString()}</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('current-round').innerHTML = `
+                        <div class="text-center text-gray-500 py-4">
+                            No active round available
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Failed to load current round:', error);
+                document.getElementById('current-round').innerHTML = `
+                    <div class="text-center text-red-500 py-4">
+                        Failed to load current round
+                    </div>
+                `;
+            }
+        }
+        
+        function selectSide(side) {
+            selectedSide = side;
+            
+            // Update button styles
+            document.getElementById('up-btn').className = side === 'UP' 
+                ? 'p-3 border-2 border-green-500 bg-green-100 rounded-lg text-green-700 font-medium'
+                : 'p-3 border-2 border-green-200 rounded-lg text-green-700 hover:bg-green-50 transition-colors';
+                
+            document.getElementById('down-btn').className = side === 'DOWN'
+                ? 'p-3 border-2 border-red-500 bg-red-100 rounded-lg text-red-700 font-medium'
+                : 'p-3 border-2 border-red-200 rounded-lg text-red-700 hover:bg-red-50 transition-colors';
+            
+            updateBetButton();
+        }
+        
+        function updateBetButton() {
+            const amount = document.getElementById('bet-amount').value;
+            const button = document.getElementById('place-bet-btn');
+            
+            if (selectedSide && amount && parseFloat(amount) > 0) {
+                button.disabled = false;
+                button.className = 'w-full bg-blue-600 text-white py-2 px-4 rounded-md font-medium hover:bg-blue-700';
+                button.textContent = `Place ${selectedSide} Bet - $${amount}`;
+            } else {
+                button.disabled = true;
+                button.className = 'w-full bg-gray-400 text-white py-2 px-4 rounded-md font-medium cursor-not-allowed';
+                button.textContent = 'Select Side & Enter Amount';
+            }
+        }
+        
+        document.getElementById('bet-amount').addEventListener('input', updateBetButton);
+        
+        document.getElementById('bet-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const amount = parseFloat(document.getElementById('bet-amount').value);
+            const amountU = Math.round(amount * 1000000); // Convert to micro USDC
+            
+            try {
+                const response = await authenticatedFetch('/bets', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        side: selectedSide,
+                        stake_u: amountU
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('Bet placed successfully!');
+                    loadBalance();
+                    loadBets();
+                    document.getElementById('bet-form').reset();
+                    selectedSide = null;
+                    updateBetButton();
+                } else {
+                    const error = await response.json();
+                    alert('Failed to place bet: ' + error.detail);
+                }
+            } catch (error) {
+                console.error('Error placing bet:', error);
+                alert('Network error placing bet');
+            }
+        });
+        
+        async function generateDepositAddress() {
+            const amount = parseFloat(document.getElementById('deposit-amount').value) || 10;
+            const amountU = Math.round(amount * 1000000);
+            
+            try {
+                const response = await authenticatedFetch('/wallet/deposit-intents', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({min_amount_u: amountU})
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('deposit-address').textContent = data.address;
+                    document.getElementById('qr-amount').textContent = amount.toFixed(2);
+                    document.getElementById('qr-code').src = data.qr_code;
+                    
+                    document.getElementById('deposit-info').classList.remove('hidden');
+                    document.getElementById('qr-code-container').classList.remove('hidden');
+                } else {
+                    alert('Failed to generate deposit address: ' + data.detail);
+                }
+            } catch (error) {
+                console.error('Error generating deposit:', error);
+                alert('Network error generating deposit');
+            }
+        }
+        
+        function copyAddress() {
+            const address = document.getElementById('deposit-address').textContent;
+            navigator.clipboard.writeText(address).then(() => {
+                alert('Address copied to clipboard!');
+            });
+        }
+        
+        async function loadBets() {
+            try {
+                const response = await authenticatedFetch('/bets');
+                const bets = await response.json();
+                
+                if (bets.length === 0) {
+                    document.getElementById('bets-table').innerHTML = `
+                        <div class="text-center text-gray-500 py-8">
+                            <i class="fas fa-inbox text-2xl mb-2"></i>
+                            <div>No bets yet</div>
+                        </div>
+                    `;
+                } else {
+                    const tableHTML = `
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Round</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Side</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    ${bets.map(bet => `
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${bet.round_code || 'N/A'}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${bet.side === 'UP' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                                    ${bet.side}
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${(bet.stake_u / 1000000).toFixed(2)}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(bet.status)}">
+                                                    ${bet.status}
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(bet.created_at).toLocaleDateString()}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                    document.getElementById('bets-table').innerHTML = tableHTML;
+                }
+            } catch (error) {
+                console.error('Failed to load bets:', error);
+                document.getElementById('bets-table').innerHTML = `
+                    <div class="text-center text-red-500 py-8">
+                        Failed to load bets
+                    </div>
+                `;
+            }
+        }
+        
+        async function loadDeposits() {
+            try {
+                const response = await authenticatedFetch('/wallet/deposit-intents');
+                const deposits = await response.json();
+                
+                if (deposits.length === 0) {
+                    document.getElementById('deposits-table').innerHTML = `
+                        <div class="text-center text-gray-500 py-8">
+                            <i class="fas fa-inbox text-2xl mb-2"></i>
+                            <div>No deposits yet</div>
+                        </div>
+                    `;
+                } else {
+                    const tableHTML = `
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Address</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Min Amount</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    ${deposits.map(deposit => `
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-xs font-mono">${deposit.address.substring(0, 16)}...</div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${(deposit.expected_min_u / 1000000).toFixed(2)}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(deposit.status)}">
+                                                    ${deposit.status}
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(deposit.created_at).toLocaleDateString()}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                    document.getElementById('deposits-table').innerHTML = tableHTML;
+                }
+            } catch (error) {
+                console.error('Failed to load deposits:', error);
+                document.getElementById('deposits-table').innerHTML = `
+                    <div class="text-center text-red-500 py-8">
+                        Failed to load deposits
+                    </div>
+                `;
+            }
+        }
+        
+        function getStatusColor(status) {
+            switch (status) {
+                case 'PLACED': return 'bg-blue-100 text-blue-800';
+                case 'WON': return 'bg-green-100 text-green-800';
+                case 'LOST': return 'bg-red-100 text-red-800';
+                case 'REFUNDED': return 'bg-yellow-100 text-yellow-800';
+                case 'ISSUED': return 'bg-yellow-100 text-yellow-800';
+                case 'CONFIRMED': return 'bg-green-100 text-green-800';
+                case 'CREDITED': return 'bg-green-100 text-green-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+        
+        async function authenticatedFetch(url, options = {}) {
+            const token = localStorage.getItem('access_token');
+            return fetch(url, {
+                ...options,
+                headers: {
+                    ...options.headers,
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+        }
+        
+        function logout() {
+            localStorage.removeItem('access_token');
+            window.location.href = '/auth/login';
+        }
+        
+        // Refresh data every 30 seconds
+        setInterval(() => {
+            loadBalance();
+            loadCurrentRound();
+            loadBets();
+            loadDeposits();
+        }, 30000);
+    </script>
+</body>
+</html>
